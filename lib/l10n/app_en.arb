@@ -1,0 +1,37 @@
+{
+  "@@locale": "en",
+  "verifyAccess": "Verify Access",
+  "@verifyAccess": {
+    "description": "Title for the OTP verification screen"
+  },
+  "codeSentTo": "A 6-digit code was sent to\n",
+  "@codeSentTo": {
+    "description": "Text indicating where the code was sent"
+  },
+  "verifyIdentity": "Verify",
+  "@verifyIdentity": {
+    "description": "Button to verify identity in OTP screen"
+  },
+  "didNotGetCode": "Didn't get the code?  ",
+  "@didNotGetCode": {
+    "description": "Prompt for user who hasn't received the OTP code"
+  },
+  "resendCode": "Resend Code",
+  "@resendCode": {
+    "description": "Action text to resend the code"
+  },
+  "codeValidFor": "CODE VALID FOR {time}",
+  "@codeValidFor": {
+    "description": "Text showing how long the code is valid",
+    "placeholders": {
+      "time": {
+        "type": "String",
+        "example": "05:00"
+      }
+    }
+  },
+  "curatorSubtitle": "Scan, earn, and redeem rewards every day.",
+  "@curatorSubtitle": {
+    "description": "Header subtitle on auth screens"
+  }
+}

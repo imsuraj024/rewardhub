@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "810897254935",
+    "project_id": "kitox-hardware",
+    "storage_bucket": "kitox-hardware.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:810897254935:android:da8913e4e458b40aeaca52",
+        "android_client_info": {
+          "package_name": "com.loyalty.rewardhub"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC8mwzTktw23koe0X3_ssqY9s6DnS9lP1I"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

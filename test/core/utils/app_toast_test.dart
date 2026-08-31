@@ -1,0 +1,140 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:rewardhub/core/utils/app_toast.dart';
+
+import '../../helpers/harness.dart';
+
+void main() {
+  GoogleFonts.config.allowRuntimeFetching = false;
+
+  tearDown(() async {
+    await resetGet();
+  });
+
+  // Builds the overlay and finishes the snackbar enter animation.
+  Future<void> settleToast(WidgetTester tester) async {
+    await tester.pump();
+    await tester.pumpAndSettle();
+  }
+
+  // Lets the 3s display timer elapse so the snackbar auto-dismisses, then
+  // finishes the exit animation — leaving no pending timers for the next test.
+  Future<void> dismissToast(WidgetTester tester) async {
+    await tester.pump(const Duration(seconds: 4));
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('positive: success shows the message and default title',
+      (tester) async {
+    await pumpApp(tester, const SizedBox.shrink());
+
+    AppToast.success('Profile updated');
+    await settleToast(tester);
+
+    expect(find.text('Profile updated'), findsOneWidget);
+    expect(find.text('Success'), findsOneWidget);
+    expect(find.byIcon(Icons.check_circle_rounded), findsOneWidget);
+
+    await dismissToast(tester);
+  });
+
+  testWidgets('positive: error shows its default title and icon',
+      (tester) async {
+    await pumpApp(tester, const SizedBox.shrink());
+
+    AppToast.error('Upload failed');
+    await settleToast(tester);
+
+    expect(find.text('Upload failed'), findsOneWidget);
+    expect(find.text('Something went wrong'), findsOneWidget);
+    expect(find.byIcon(Icons.error_rounded), findsOneWidget);
+
+    await dismissToast(tester);
+  });
+
+  testWidgets('positive: warning shows its default title and icon',
+      (tester) async {
+    await pumpApp(tester, const SizedBox.shrink());
+
+    AppToast.warning('Battery low');
+    await settleToast(tester);
+
+    expect(find.text('Battery low'), findsOneWidget);
+    expect(find.text('Heads up'), findsOneWidget);
+    expect(find.byIcon(Icons.warning_rounded), findsOneWidget);
+
+    await dismissToast(tester);
+  });
+
+  testWidgets('positive: info shows its default title and icon',
+      (tester) async {
+    await pumpApp(tester, const SizedBox.shrink());
+
+    AppToast.info('New feature available');
+    await settleToast(tester);
+
+    expect(find.text('New feature available'), findsOneWidget);
+    expect(find.text('Info'), findsOneWidget);
+    expect(find.byIcon(Icons.info_rounded), findsOneWidget);
+
+    await dismissToast(tester);
+  });
+
+  testWidgets('edge: custom title overrides the default', (tester) async {
+    await pumpApp(tester, const SizedBox.shrink());
+
+    AppToast.error('Disk is full', title: 'Storage error');
+    await settleToast(tester);
+
+    expect(find.text('Storage error'), findsOneWidget);
+    expect(find.text('Something went wrong'), findsNothing);
+    expect(find.text('Disk is full'), findsOneWidget);
+
+    await dismissToast(tester);
+  });
+
+  testWidgets('edge: calling twice does not throw', (tester) async {
+    await pumpApp(tester, const SizedBox.shrink());
+
+    AppToast.success('first');
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    // Second call closes the duplicate before showing the new one.
+    AppToast.success('second');
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+
+    // Drain both snackbars from the queue so the next test starts clean.
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('edge: renders an empty message without throwing',
+      (tester) async {
+    await pumpApp(tester, const SizedBox.shrink());
+
+    AppToast.info('');
+    await settleToast(tester);
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('Info'), findsOneWidget);
+
+    await dismissToast(tester);
+  });
+
+  testWidgets('edge: renders a very long message', (tester) async {
+    await pumpApp(tester, const SizedBox.shrink());
+
+    final message = 'Something happened. ' * 20;
+    AppToast.warning(message);
+    await settleToast(tester);
+
+    expect(tester.takeException(), isNull);
+    expect(find.text(message), findsOneWidget);
+
+    await dismissToast(tester);
+  });
+}

@@ -1,0 +1,744 @@
+tests:
+  # ============================================================================
+  # 1. AUTHENTICATION & ONBOARDING MODULE
+  # ============================================================================
+  - id: login-phone-valid
+    displayName: "Send OTP with valid 10-digit mobile number"
+    steps:
+      - goal: "Open the application login screen"
+        hint: "Launch RewardHub on mobile device or emulator"
+        finalScreenAssertion: "The login header, Welcome to Kitox Hardware, mobile number input field, and Get OTP button are visible"
+      - goal: "Enter a valid 10-digit mobile number"
+        hint: "Type a 10-digit mobile number such as 9876543210 into the mobile number text field"
+        finalScreenAssertion: "The mobile input field contains 9876543210 and the Get OTP button is enabled"
+      - goal: "Tap on the Get OTP button"
+        hint: "Press the primary CTA button at the bottom of the login form"
+        finalScreenAssertion: "The OTP verification screen is displayed with subtext Enter 6-digit OTP sent to +91 9876543210 and resend countdown timer"
+
+  - id: login-phone-invalid-short
+    displayName: "Display validation error when mobile number is less than 10 digits"
+    steps:
+      - goal: "Enter a 5-digit mobile number on the login screen"
+        hint: "Type 98765 into the mobile number input field"
+        finalScreenAssertion: "The text Enter a valid 10-digit mobile number validation error is displayed below the field and Get OTP is disabled"
+
+  - id: login-phone-invalid-characters
+    displayName: "Block non-numeric characters in mobile number input field"
+    steps:
+      - goal: "Attempt entering alphabetic or special characters in mobile number field"
+        hint: "Type 98765abc!@ into the mobile number input box"
+        finalScreenAssertion: "The input field filters out non-digit characters and displays only numeric digits 98765"
+
+  - id: login-phone-rate-limit
+    displayName: "Handle OTP resend countdown timer and button state"
+    steps:
+      - goal: "Request OTP on login screen"
+        hint: "Enter valid phone number and tap Get OTP"
+        finalScreenAssertion: "The Resend OTP button is disabled and a 30-second countdown timer starts"
+      - goal: "Wait for 30-second timer expiry"
+        hint: "Allow 30 seconds to elapse on OTP verification screen"
+        finalScreenAssertion: "The countdown timer reaches 0s and the Resend OTP button becomes active"
+
+  - id: login-phone-network-error
+    displayName: "Handle network error when requesting OTP"
+    steps:
+      - goal: "Request OTP while mobile device is offline"
+        hint: "Turn off internet connectivity and tap Get OTP"
+        finalScreenAssertion: "The error toast No internet connection. Please check your network and try again is displayed"
+
+  - id: verify-otp-correct-code
+    displayName: "Verify OTP with correct 6-digit verification code"
+    prerequisiteTestCaseId: login-phone-valid
+    steps:
+      - goal: "Enter the correct 6-digit OTP code into the OTP input boxes"
+        hint: "Fill in 123456 into the OTP digits fields"
+        finalScreenAssertion: "All 6 OTP digit boxes display 123456 and the Verify & Proceed button triggers authentication request"
+      - goal: "Complete OTP verification and navigate into the app"
+        hint: "Tap Verify & Proceed or wait for auto-submit upon entering the 6th digit"
+        finalScreenAssertion: "The user session token is saved to secure storage and the home dashboard screen is displayed"
+
+  - id: verify-otp-incorrect-code
+    displayName: "Verify OTP with incorrect verification code"
+    prerequisiteTestCaseId: login-phone-valid
+    steps:
+      - goal: "Enter an incorrect 6-digit OTP code into the OTP input boxes"
+        hint: "Type 000000 into the verification code field"
+        finalScreenAssertion: "The error toast Invalid verification code. Please check and try again is displayed and input remains focused"
+
+  - id: verify-otp-auto-submit
+    displayName: "Auto-submit OTP upon typing the 6th digit"
+    prerequisiteTestCaseId: login-phone-valid
+    steps:
+      - goal: "Type the 6th digit into the OTP input fields"
+        hint: "Rapidly type digits 123456"
+        finalScreenAssertion: "The form automatically submits without requiring an explicit button tap and the progress indicator appears"
+
+  - id: verify-otp-resend
+    displayName: "Request new OTP code using Resend OTP button"
+    prerequisiteTestCaseId: login-phone-valid
+    steps:
+      - goal: "Tap Resend OTP after countdown timer expires"
+        hint: "Wait 30s and press the enabled Resend OTP text button"
+        finalScreenAssertion: "A success toast New OTP sent to +91 9876543210 appears and the 30s timer resets"
+
+  - id: verify-otp-session-persisted
+    displayName: "Persist user token in SecureStorage on successful verification"
+    prerequisiteTestCaseId: verify-otp-correct-code
+    steps:
+      - goal: "Verify token persistence after login"
+        hint: "Complete OTP verification and inspect storage layer"
+        finalScreenAssertion: "SecureStorage contains non-null jwt_token key and user is marked as authenticated"
+
+  - id: register-personal-details-valid
+    displayName: "Fill personal details onboarding step for new user"
+    prerequisiteTestCaseId: verify-otp-correct-code
+    steps:
+      - goal: "Fill in personal details on registration screen"
+        hint: "Enter full name John Doe, city Mumbai, and select role Mechanic"
+        finalScreenAssertion: "All required registration fields are filled with valid data and checkmarks appear"
+      - goal: "Tap Next to save personal details"
+        hint: "Press the Next button at the bottom of the screen"
+        finalScreenAssertion: "The account payout details registration step is displayed"
+
+  - id: register-personal-details-validation
+    displayName: "Validate required fields on personal details step"
+    prerequisiteTestCaseId: verify-otp-correct-code
+    steps:
+      - goal: "Tap Next without entering full name or city"
+        hint: "Leave full name field blank and press Next"
+        finalScreenAssertion: "Validation messages Full name is required and City is required appear below input fields"
+
+  - id: register-account-details-upi-valid
+    displayName: "Enter valid UPI ID on account payout details step"
+    prerequisiteTestCaseId: register-personal-details-valid
+    steps:
+      - goal: "Enter UPI ID for instant reward payouts"
+        hint: "Enter john@upi in the UPI ID input field"
+        finalScreenAssertion: "The UPI ID field displays john@upi with a green checkmark indicator"
+
+  - id: register-account-details-bank-valid
+    displayName: "Enter valid Bank Account number and IFSC code"
+    prerequisiteTestCaseId: register-personal-details-valid
+    steps:
+      - goal: "Expand optional Bank details section and fill inputs"
+        hint: "Enter Account Number 123456789012 and IFSC SBIN0001234"
+        finalScreenAssertion: "Bank account number and IFSC code fields display valid values with green checkmark badges"
+
+  - id: register-account-details-toggle-bank
+    displayName: "Expand and collapse optional Bank details section"
+    prerequisiteTestCaseId: register-personal-details-valid
+    steps:
+      - goal: "Tap Add Bank Account Details (Optional) expansion tile"
+        hint: "Tap the expansion header button"
+        finalScreenAssertion: "The Bank Account Number and IFSC Code fields expand smoothly into view"
+
+  - id: register-complete-navigation
+    displayName: "Complete registration and navigate to Home Shell"
+    prerequisiteTestCaseId: register-account-details-upi-valid
+    steps:
+      - goal: "Tap Complete Registration button"
+        hint: "Submit the completed onboarding form"
+        finalScreenAssertion: "Profile setup completes, user state updates to registered, and the home screen is displayed"
+
+  # ============================================================================
+  # 2. HOME DASHBOARD MODULE
+  # ============================================================================
+  - id: home-points-balance-display
+    displayName: "View points balance card and weekly trend badge"
+    prerequisiteTestCaseId: verify-otp-correct-code
+    steps:
+      - goal: "Navigate to the home screen dashboard"
+        hint: "Tap on the Home tab on the bottom navigation bar"
+        finalScreenAssertion: "The points balance card displaying current points formatted as 1,250 PTS and weekly trend badge +150 pts this week is visible"
+
+  - id: home-greeting-morning
+    displayName: "Display Good Morning greeting with golden sun icon (05:00 - 11:59)"
+    prerequisiteTestCaseId: verify-otp-correct-code
+    steps:
+      - goal: "View home screen during morning hours (e.g. 09:00 AM)"
+        hint: "Set device/mock clock to 09:00 AM"
+        finalScreenAssertion: "Greeting text displays Good morning, Name with a golden sun icon (Icons.wb_sunny_rounded, color #FFD54F)"
+
+  - id: home-greeting-afternoon
+    displayName: "Display Good Afternoon greeting with amber sun icon (12:00 - 16:59)"
+    prerequisiteTestCaseId: verify-otp-correct-code
+    steps:
+      - goal: "View home screen during afternoon hours (e.g. 02:00 PM)"
+        hint: "Set device/mock clock to 02:00 PM"
+        finalScreenAssertion: "Greeting text displays Good afternoon, Name with an amber sun icon (Icons.wb_twilight_rounded, color #FFB74D)"
+
+  - id: home-greeting-evening
+    displayName: "Display Good Evening greeting with soft moon icon (17:00 - 20:59)"
+    prerequisiteTestCaseId: verify-otp-correct-code
+    steps:
+      - goal: "View home screen during evening hours (e.g. 07:00 PM)"
+        hint: "Set device/mock clock to 07:00 PM"
+        finalScreenAssertion: "Greeting text displays Good evening, Name with a soft silver moon icon (Icons.nights_stay_rounded, color #E2E8F0)"
+
+  - id: home-greeting-night
+    displayName: "Display Welcome Back greeting with twilight icon (21:00 - 04:59)"
+    prerequisiteTestCaseId: verify-otp-correct-code
+    steps:
+      - goal: "View home screen during late night hours (e.g. 11:00 PM)"
+        hint: "Set device/mock clock to 11:00 PM"
+        finalScreenAssertion: "Greeting text displays Welcome back, Name with a twilight icon (Icons.wb_twilight_rounded, color #E5E7EB)"
+
+  - id: home-promotional-banners-slider
+    displayName: "Auto-scroll promotional banners PageView with pagination indicators"
+    prerequisiteTestCaseId: verify-otp-correct-code
+    steps:
+      - goal: "View promotional banner slider section on home screen"
+        hint: "Observe the banner carousel below the points card"
+        finalScreenAssertion: "Banner slides automatically every 4 seconds and active pagination dot updates"
+
+  - id: home-quick-actions-scan
+    displayName: "Tap Scan Receipt quick action CTA"
+    prerequisiteTestCaseId: verify-otp-correct-code
+    steps:
+      - goal: "Tap Scan Receipt quick action button on home screen"
+        hint: "Select the Scan Receipt quick action card"
+        finalScreenAssertion: "Active tab switches to QR Scan tab and camera scanner view opens"
+
+  - id: home-quick-actions-catalogue
+    displayName: "Tap View Catalogue quick action CTA"
+    prerequisiteTestCaseId: verify-otp-correct-code
+    steps:
+      - goal: "Tap View Catalogue quick action button on home screen"
+        hint: "Select the Product Catalogue quick action card"
+        finalScreenAssertion: "Active tab switches to Catalogue tab and PDF downloader opens"
+
+  - id: home-quick-actions-redeem
+    displayName: "Tap Redeem Points quick action CTA"
+    prerequisiteTestCaseId: verify-otp-correct-code
+    steps:
+      - goal: "Tap Redeem Points quick action button on home screen"
+        hint: "Select the Redeem Points quick action card"
+        finalScreenAssertion: "Active tab switches to Wallet tab and redemption options open"
+
+  - id: home-recent-activity-list
+    displayName: "Render recent credit and debit transactions list"
+    prerequisiteTestCaseId: verify-otp-correct-code
+    steps:
+      - goal: "View recent activity section when user has transaction history"
+        hint: "Scroll down to Recent Activity section on home screen"
+        finalScreenAssertion: "List of activity items displaying transaction title, date, and +100 PTS green badge or -500 PTS red badge is visible"
+
+  - id: home-recent-activity-empty-state
+    displayName: "View encouraging warm empty state when recent activity list is empty"
+    prerequisiteTestCaseId: verify-otp-correct-code
+    steps:
+      - goal: "View recent activity section for a user with zero past receipt scans"
+        hint: "Scroll down to Recent Activity section on home screen"
+        finalScreenAssertion: "Headline No scans yet!, subtext Scan your first receipt to start earning points., and primary CTA Scan Now button are visible"
+
+  - id: home-recent-activity-scan-now-cta
+    displayName: "Tap Scan Now CTA button in warm empty state"
+    prerequisiteTestCaseId: home-recent-activity-empty-state
+    steps:
+      - goal: "Tap Scan Now button inside the warm empty state illustration"
+        hint: "Press the primary CTA button below the No scans yet! graphic"
+        finalScreenAssertion: "Active tab switches to QR Scan tab with camera scanner active"
+
+  - id: home-pull-to-refresh
+    displayName: "Pull down to refresh home dashboard points and activity feed"
+    prerequisiteTestCaseId: verify-otp-correct-code
+    steps:
+      - goal: "Swipe down from the top of the home screen to trigger refresh"
+        hint: "Perform a vertical drag gesture downwards on the home screen view"
+        finalScreenAssertion: "RefreshIndicator animation spins and updated profile points balance and activity data are displayed"
+
+  # ============================================================================
+  # 3. QR CODE SCANNER MODULE
+  # ============================================================================
+  - id: qr-scan-camera-permission-granted
+    displayName: "Open QR scanner with granted camera permission"
+    prerequisiteTestCaseId: verify-otp-correct-code
+    steps:
+      - goal: "Open the QR Scanner tab"
+        hint: "Tap on the Scan tab located in the center of the bottom navigation bar"
+        finalScreenAssertion: "MobileScanner camera view is mounted with 220px corner brackets, animated sweeping laser line, and instruction text Align QR code within the frame"
+
+  - id: qr-scan-animated-laser-line
+    displayName: "Dynamic sweeping animated laser line inside 220px window"
+    prerequisiteTestCaseId: qr-scan-camera-permission-granted
+    steps:
+      - goal: "Observe scanner overlay line inside 220px box"
+        hint: "Watch the green/blue laser line inside the camera window"
+        finalScreenAssertion: "AnimatedLaserLine sweeps vertically back and forth between top and bottom bounds of the 220px box with ambient glow"
+
+  - id: qr-scan-submitting-loading-overlay
+    displayName: "Display submitting & verification loading overlay on QR detection"
+    prerequisiteTestCaseId: qr-scan-camera-permission-granted
+    steps:
+      - goal: "Point the camera at a valid product QR code"
+        hint: "Align a QR code payload within the 220px cutout frame"
+        finalScreenAssertion: "A semi-transparent dark backdrop overlay (65% opacity black) with a progress spinner, title Verifying QR Code..., and subtext Please hold on while we claim your points. is visible"
+
+  - id: qr-scan-ignore-duplicate-scans
+    displayName: "Ignore secondary QR detections while an API submission is in-flight"
+    prerequisiteTestCaseId: qr-scan-submitting-loading-overlay
+    steps:
+      - goal: "Detect additional QR frames while isSubmitting is true"
+        hint: "Keep camera pointed at QR code during network request"
+        finalScreenAssertion: "Only one API submission request is triggered and duplicate frames are ignored"
+
+  - id: qr-scan-claim-points-success
+    displayName: "Claim points successfully from scanned QR code"
+    prerequisiteTestCaseId: qr-scan-camera-permission-granted
+    steps:
+      - goal: "Submit a valid QR code payload for verification"
+        hint: "Wait for the API response after QR detection"
+        finalScreenAssertion: "A success toast Points Claimed! +100 PTS is displayed, isSubmitting resets to false, and the total balance increases"
+
+  - id: qr-scan-claim-points-already-used
+    displayName: "Display error toast when scanning an already claimed QR code"
+    prerequisiteTestCaseId: qr-scan-camera-permission-granted
+    steps:
+      - goal: "Scan a QR code that has already been redeemed previously"
+        hint: "Point camera at an already claimed QR barcode payload"
+        finalScreenAssertion: "Error toast This QR code has already been claimed is displayed and isSubmitting resets to false"
+
+  - id: qr-scan-claim-points-invalid-format
+    displayName: "Display error message for unrecognized or corrupted QR code"
+    prerequisiteTestCaseId: qr-scan-camera-permission-granted
+    steps:
+      - goal: "Scan an invalid non-Kitox QR barcode"
+        hint: "Point camera at a random non-app QR code"
+        finalScreenAssertion: "Error toast Invalid receipt QR code. Please scan a valid Kitox hardware QR code. is displayed"
+
+  - id: qr-scan-camera-permission-denied
+    displayName: "Display camera permission required UI when permission is denied"
+    prerequisiteTestCaseId: verify-otp-correct-code
+    steps:
+      - goal: "Navigate to the QR Scan tab with camera permission denied"
+        hint: "Select the Scan tab when camera access is denied in OS settings"
+        finalScreenAssertion: "Camera icon, Camera Permission Required title, and Grant Permission button are visible"
+
+  - id: qr-scan-camera-permission-permanent-denied
+    displayName: "Open OS App Settings when camera permission is permanently denied"
+    prerequisiteTestCaseId: qr-scan-camera-permission-denied
+    steps:
+      - goal: "Tap Open Settings button on permanently denied screen"
+        hint: "Press the Open Settings CTA button"
+        finalScreenAssertion: "openAppSettings() is invoked and device system settings page opens"
+
+  - id: qr-scan-tab-pause-resume
+    displayName: "Pause camera scanner when leaving tab and resume upon returning"
+    prerequisiteTestCaseId: qr-scan-camera-permission-granted
+    steps:
+      - goal: "Switch away from QR Scan tab to Wallet tab"
+        hint: "Tap Wallet tab in bottom navigation bar"
+        finalScreenAssertion: "MobileScanner controller pauses camera stream to conserve battery"
+      - goal: "Return to QR Scan tab"
+        hint: "Tap Scan tab in bottom navigation bar"
+        finalScreenAssertion: "MobileScanner controller resumes camera stream automatically"
+
+  # ============================================================================
+  # 4. WALLET & POINTS REDEMPTION MODULE
+  # ============================================================================
+  - id: wallet-balance-card
+    displayName: "View wallet points balance and lifetime earnings summary"
+    prerequisiteTestCaseId: verify-otp-correct-code
+    steps:
+      - goal: "Open the Wallet tab"
+        hint: "Tap on the Wallet tab in the bottom navigation bar"
+        finalScreenAssertion: "Total balance card (1,250 PTS), lifetime earned summary, and lifetime redeemed summary are visible"
+
+  - id: wallet-deduct-points-optimistic
+    displayName: "Optimistically deduct points balance upon redeeming"
+    prerequisiteTestCaseId: wallet-balance-card
+    steps:
+      - goal: "Trigger deductPoints(500) in ProfileController"
+        hint: "Initiate a 500 PTS redemption payout"
+        finalScreenAssertion: "Profile state updates instantly to 750 PTS before server response completes"
+
+  - id: wallet-redeem-modal-open
+    displayName: "Open points redemption modal sheet"
+    prerequisiteTestCaseId: wallet-balance-card
+    steps:
+      - goal: "Tap Redeem Points button in Wallet tab"
+        hint: "Press the primary Redeem Points CTA button"
+        finalScreenAssertion: "Redemption bottom sheet opens displaying payout options (UPI / Bank) and point tier selectors"
+
+  - id: wallet-redeem-upi-success
+    displayName: "Redeem 500 PTS to registered UPI ID successfully"
+    prerequisiteTestCaseId: wallet-redeem-modal-open
+    steps:
+      - goal: "Select 500 PTS tier, choose UPI payout, and tap Redeem Now"
+        hint: "Confirm redemption to registered UPI john@upi"
+        finalScreenAssertion: "Success modal Redemption Request Submitted! Payout will be credited within 24 hours. appears and 500 PTS is deducted"
+
+  - id: wallet-redeem-bank-success
+    displayName: "Redeem 1,000 PTS to registered Bank Account successfully"
+    prerequisiteTestCaseId: wallet-redeem-modal-open
+    steps:
+      - goal: "Select 1,000 PTS tier, choose Bank payout, and tap Redeem Now"
+        hint: "Confirm redemption to account 123456789012"
+        finalScreenAssertion: "Success modal Bank Payout Initiated! appears and transaction status shows Pending"
+
+  - id: wallet-redeem-insufficient-points
+    displayName: "Block redemption when points balance is below 500 PTS"
+    prerequisiteTestCaseId: wallet-balance-card
+    steps:
+      - goal: "Attempt redeeming points when balance is 200 PTS"
+        hint: "Tap Redeem Points button with balance < 500 PTS"
+        finalScreenAssertion: "Message Minimum redemption threshold is 500 PTS is displayed and Redeem Now CTA is disabled"
+
+  - id: wallet-redeem-missing-payout-details
+    displayName: "Direct user to add payout info when UPI/bank details are missing"
+    prerequisiteTestCaseId: wallet-redeem-modal-open
+    steps:
+      - goal: "Attempt redemption without any saved UPI or Bank details"
+        hint: "Press Redeem Now when payout profile is empty"
+        finalScreenAssertion: "Prompt Please add your UPI ID or Bank Account in Profile to receive payouts is visible with CTA Go to Profile"
+
+  - id: wallet-history-all-tab
+    displayName: "Render combined transaction history list in All tab"
+    prerequisiteTestCaseId: wallet-balance-card
+    steps:
+      - goal: "View transaction history in Wallet tab"
+        hint: "Scroll down to Transaction History section"
+        finalScreenAssertion: "Combined list of credit (earned) and debit (redeemed) transaction cards is visible"
+
+  - id: wallet-history-earned-filter
+    displayName: "Filter transaction history to show only earned receipt points"
+    prerequisiteTestCaseId: wallet-balance-card
+    steps:
+      - goal: "Select the Earned filter tab"
+        hint: "Tap on the Earned segment filter button"
+        finalScreenAssertion: "Only positive receipt scan credit transactions (+100 PTS, +250 PTS) are listed"
+
+  - id: wallet-history-redeemed-filter
+    displayName: "Filter transaction history to show only redeemed payouts"
+    prerequisiteTestCaseId: wallet-balance-card
+    steps:
+      - goal: "Select the Redeemed filter tab"
+        hint: "Tap on the Redeemed segment filter button"
+        finalScreenAssertion: "Only payout redemption transactions (-500 PTS, -1000 PTS) are listed"
+
+  - id: wallet-history-empty-state
+    displayName: "Display empty state graphic when transaction history is empty"
+    prerequisiteTestCaseId: wallet-balance-card
+    steps:
+      - goal: "View transaction history for a brand new user"
+        hint: "Select Wallet tab for user with 0 transactions"
+        finalScreenAssertion: "Graphic with No transactions yet and subtext Scan receipts or redeem points to view your history is visible"
+
+  # ============================================================================
+  # 5. PROFILE, SETTINGS & REFERRALS MODULE
+  # ============================================================================
+  - id: profile-header-display
+    displayName: "Render user profile name, mobile number, and avatar badge"
+    prerequisiteTestCaseId: verify-otp-correct-code
+    steps:
+      - goal: "Open the Profile tab"
+        hint: "Tap on the Profile tab in the bottom navigation bar"
+        finalScreenAssertion: "Profile header showing user full name John Doe, phone +91 9876543210, and user avatar is visible"
+
+  - id: profile-generate-referral-code
+    displayName: "Generate obfuscated referral code in format KX-XXXX-XXXX"
+    prerequisiteTestCaseId: verify-otp-correct-code
+    steps:
+      - goal: "Invoke generateReferralCode(profileId) in ProfileController"
+        hint: "Inspect generated code for profile ID 12345"
+        finalScreenAssertion: "Returns obfuscated 8-character string starting with KX- (e.g. KX-09A3-M8P2)"
+
+  - id: profile-stats-card-referral-code
+    displayName: "Display generated referral code card in Profile stats row"
+    prerequisiteTestCaseId: profile-header-display
+    steps:
+      - goal: "View stats row in Profile tab"
+        hint: "Look at the first card in _StatsRow"
+        finalScreenAssertion: "Left stat card label displays Referral Code and value displays obfuscated referral code KX-09A3-M8P2"
+
+  - id: profile-stats-card-mobile
+    displayName: "Display user mobile number card in Profile stats row"
+    prerequisiteTestCaseId: profile-header-display
+    steps:
+      - goal: "View stats row in Profile tab"
+        hint: "Look at the second card in _StatsRow"
+        finalScreenAssertion: "Right stat card label displays Mobile Number and value displays +91 9876543210"
+
+  - id: profile-referral-sheet-open
+    displayName: "Open Invite Friends & Share referral bottom sheet"
+    prerequisiteTestCaseId: profile-header-display
+    steps:
+      - goal: "Tap on Invite Friends & Share in account settings list"
+        hint: "Scroll down and select the Invite Friends & Share row item"
+        finalScreenAssertion: "Referral bottom sheet opens showing gift card icon, title Invite Friends & Share, YOUR REFERRAL CODE, and code KX-09A3-M8P2"
+
+  - id: profile-referral-sheet-copy-code
+    displayName: "Copy referral code to system clipboard and show toast"
+    prerequisiteTestCaseId: profile-referral-sheet-open
+    steps:
+      - goal: "Tap the Copy button next to the referral code"
+        hint: "Press the Copy button inside the referral code container"
+        finalScreenAssertion: "Referral code is copied to system clipboard and success toast Referral code copied to clipboard! is displayed"
+
+  - id: profile-referral-sheet-share-link
+    displayName: "Copy share invite link & message to system clipboard and show toast"
+    prerequisiteTestCaseId: profile-referral-sheet-open
+    steps:
+      - goal: "Tap the Share Invite Link CTA button"
+        hint: "Press the primary Share Invite Link button at the bottom of the sheet"
+        finalScreenAssertion: "Full invitation text with download link is copied to clipboard and success toast Invite link & message copied! Share with friends. is displayed"
+
+  - id: profile-whats-new-sheet-open
+    displayName: "Open What's New release notes modal from Profile"
+    prerequisiteTestCaseId: profile-header-display
+    steps:
+      - goal: "Tap on What is New in Profile account settings"
+        hint: "Select the What is New setting row item"
+        finalScreenAssertion: "Release notes modal opens displaying app update highlights, version string, and Got It button"
+
+  - id: profile-whats-new-sheet-hidden
+    displayName: "Hide What's New setting item when releaseNotes is null or empty"
+    prerequisiteTestCaseId: profile-header-display
+    steps:
+      - goal: "Open Profile tab when releaseNotes from RemoteConfig is null"
+        hint: "Set RemoteConfigService.releaseNotes to null"
+        finalScreenAssertion: "What is New setting row item is omitted from the settings list"
+
+  - id: profile-faq-support-navigation
+    displayName: "Navigate to FAQ & Support view with support email"
+    prerequisiteTestCaseId: profile-header-display
+    steps:
+      - goal: "Tap on Help & FAQ in Profile settings"
+        hint: "Select the Help & FAQ setting row item"
+        finalScreenAssertion: "FAQ view opens displaying expandable Q&A items and support contact email support@kitoxhardware.com"
+
+  - id: profile-logout-confirmation-modal
+    displayName: "Display confirmation dialog on tapping Logout"
+    prerequisiteTestCaseId: profile-header-display
+    steps:
+      - goal: "Tap on Logout in Profile settings"
+        hint: "Scroll to the bottom of Profile tab and tap Logout"
+        finalScreenAssertion: "Dialog titled Log Out with text Are you sure you want to log out of RewardHub? and buttons Cancel / Log Out is visible"
+
+  - id: profile-logout-confirm
+    displayName: "Confirm logout, clear secure storage, and redirect to Login screen"
+    prerequisiteTestCaseId: profile-logout-confirmation-modal
+    steps:
+      - goal: "Tap Log Out in the confirmation dialog"
+        hint: "Confirm the logout action"
+        finalScreenAssertion: "SecureStorage token is cleared, auth state resets, and the app navigates to Login screen"
+
+  - id: profile-logout-cancel
+    displayName: "Dismiss logout confirmation dialog on tapping Cancel"
+    prerequisiteTestCaseId: profile-logout-confirmation-modal
+    steps:
+      - goal: "Tap Cancel in the logout confirmation dialog"
+        hint: "Cancel the logout action"
+        finalScreenAssertion: "Dialog dismisses and user remains logged in on Profile tab"
+
+  # ============================================================================
+  # 6. PRODUCT CATALOGUE MODULE
+  # ============================================================================
+  - id: catalogue-pdf-download-loading
+    displayName: "Download product catalogue PDF with progress indicator"
+    prerequisiteTestCaseId: verify-otp-correct-code
+    steps:
+      - goal: "Open the Catalogue tab"
+        hint: "Tap on the Catalogue tab in the bottom navigation bar"
+        finalScreenAssertion: "Download progress bar and text Downloading Product Catalogue... are visible"
+
+  - id: catalogue-pdf-view-render
+    displayName: "Render PDF pages in FlutterPdfView with page navigation controls"
+    prerequisiteTestCaseId: catalogue-pdf-download-loading
+    steps:
+      - goal: "Wait for PDF download completion"
+        hint: "Allow PDF file download to complete"
+        finalScreenAssertion: "PDF viewer renders page 1, page counter Page 1 of 24 is visible, and pinch-to-zoom is active"
+
+  - id: catalogue-pdf-refresh-action
+    displayName: "Re-download latest product catalogue on tapping AppBar refresh icon"
+    prerequisiteTestCaseId: catalogue-pdf-view-render
+    steps:
+      - goal: "Tap refresh icon in Catalogue AppBar"
+        hint: "Press the refresh action button in top bar"
+        finalScreenAssertion: "PDF download process re-initiates and latest catalogue file is loaded"
+
+  - id: catalogue-pdf-download-error
+    displayName: "Display error state when catalogue PDF download fails"
+    prerequisiteTestCaseId: verify-otp-correct-code
+    steps:
+      - goal: "Open Catalogue tab while device is offline or URL is invalid"
+        hint: "Navigate to Catalogue tab without active internet connection"
+        finalScreenAssertion: "Error illustration, text Failed to load product catalogue, and Retry button are visible"
+
+  - id: catalogue-pdf-retry-cta
+    displayName: "Tap Retry button to re-attempt PDF download"
+    prerequisiteTestCaseId: catalogue-pdf-download-error
+    steps:
+      - goal: "Tap Retry button on error screen"
+        hint: "Press the primary Retry button"
+        finalScreenAssertion: "Download progress indicator restarts and PDF fetch is re-attempted"
+
+  # ============================================================================
+  # 7. APP UPDATE & MAINTENANCE MODULE
+  # ============================================================================
+  - id: app-update-prompt-optional
+    displayName: "Display optional app update screen with release notes list"
+    prerequisiteTestCaseId: verify-otp-correct-code
+    steps:
+      - goal: "Launch app when optional update flag is set in Remote Config"
+        hint: "Open app when is_update_available = true and is_mandatory = false"
+        finalScreenAssertion: "App Update screen opens showing release notes bullet points, Later button, and Update Now button"
+
+  - id: app-update-prompt-mandatory
+    displayName: "Display mandatory app update screen without dismiss option"
+    prerequisiteTestCaseId: verify-otp-correct-code
+    steps:
+      - goal: "Launch app when mandatory update flag is set in Remote Config"
+        hint: "Open app when is_update_available = true and is_mandatory = true"
+        finalScreenAssertion: "App Update screen opens showing Mandatory Update Required, release notes, and Update Now button (Later button is hidden)"
+
+  - id: app-update-store-redirect
+    displayName: "Redirect to App Store / Play Store on tapping Update Now"
+    prerequisiteTestCaseId: app-update-prompt-optional
+    steps:
+      - goal: "Tap Update Now button on update prompt"
+        hint: "Press the primary Update Now CTA button"
+        finalScreenAssertion: "url_launcher opens Play Store / App Store product URL for RewardHub"
+
+  - id: maintenance-mode-active
+    displayName: "Lock app to Maintenance View when is_maintenance_mode is true"
+    steps:
+      - goal: "Launch application while Remote Config maintenanceMode is active"
+        hint: "Open RewardHub when is_maintenance_mode is set to true"
+        finalScreenAssertion: "App locks navigation to Maintenance View displaying Undergoing Scheduled Maintenance, support phone/email links, and Check Status CTA"
+
+  - id: maintenance-mode-check-status
+    displayName: "Fetch latest Remote Config settings on tapping Check Status"
+    prerequisiteTestCaseId: maintenance-mode-active
+    steps:
+      - goal: "Tap Check Status button on Maintenance screen"
+        hint: "Press the Check Status CTA button"
+        finalScreenAssertion: "fetchAndActivate() executes and toast displays latest server status"
+
+  - id: maintenance-mode-support-email
+    displayName: "Launch email client on tapping support email link"
+    prerequisiteTestCaseId: maintenance-mode-active
+    steps:
+      - goal: "Tap support email link support@kitoxhardware.com"
+        hint: "Select the support email link text"
+        finalScreenAssertion: "url_launcher opens system mail app with recipient set to support@kitoxhardware.com"
+
+  # ============================================================================
+  # 8. SHELL & NAVIGATION MODULE
+  # ============================================================================
+  - id: splash-restore-session-valid
+    displayName: "Restore active user session on app launch and navigate to Home"
+    steps:
+      - goal: "Launch application with saved valid token in SecureStorage"
+        hint: "Cold start app when valid session exists"
+        finalScreenAssertion: "Splash screen restores token, profile is loaded, and user lands on Home dashboard"
+
+  - id: splash-restore-session-invalid
+    displayName: "Navigate to Login screen when no saved session token exists"
+    steps:
+      - goal: "Launch application for unauthenticated user"
+        hint: "Cold start app when SecureStorage is empty"
+        finalScreenAssertion: "Splash screen finishes initialization and navigates to Login screen"
+
+  - id: shell-tab-switch-home
+    displayName: "Switch active tab to Home"
+    prerequisiteTestCaseId: verify-otp-correct-code
+    steps:
+      - goal: "Tap Home icon in bottom navigation bar"
+        hint: "Select tab index 0"
+        finalScreenAssertion: "Home dashboard view is active and tab icon is highlighted"
+
+  - id: shell-tab-switch-catalogue
+    displayName: "Switch active tab to Catalogue"
+    prerequisiteTestCaseId: verify-otp-correct-code
+    steps:
+      - goal: "Tap Catalogue icon in bottom navigation bar"
+        hint: "Select tab index 1"
+        finalScreenAssertion: "Product Catalogue PDF view is active and tab icon is highlighted"
+
+  - id: shell-tab-switch-scan
+    displayName: "Switch active tab to Scan"
+    prerequisiteTestCaseId: verify-otp-correct-code
+    steps:
+      - goal: "Tap Scan icon in center of bottom navigation bar"
+        hint: "Select tab index 2"
+        finalScreenAssertion: "QR Code Scanner view is active with camera live stream"
+
+  - id: shell-tab-switch-wallet
+    displayName: "Switch active tab to Wallet"
+    prerequisiteTestCaseId: verify-otp-correct-code
+    steps:
+      - goal: "Tap Wallet icon in bottom navigation bar"
+        hint: "Select tab index 3"
+        finalScreenAssertion: "Wallet & Points Redemption view is active and tab icon is highlighted"
+
+  - id: shell-tab-switch-profile
+    displayName: "Switch active tab to Profile"
+    prerequisiteTestCaseId: verify-otp-correct-code
+    steps:
+      - goal: "Tap Profile icon in bottom navigation bar"
+        hint: "Select tab index 4"
+        finalScreenAssertion: "User Profile & Settings view is active and tab icon is highlighted"
+
+  - id: shell-app-top-bar-logo
+    displayName: "Display app logo badge in AppTopBar when showLogo is true"
+    prerequisiteTestCaseId: verify-otp-correct-code
+    steps:
+      - goal: "Render AppTopBar(showLogo: true) on Home screen"
+        hint: "Inspect AppTopBar widget on Home view"
+        finalScreenAssertion: "App logo icon asset assets/images/app_icon.png is rendered next to the title text"
+
+  - id: shell-app-top-bar-divider
+    displayName: "Render 0.5px bottom border line in AppTopBar when showDivider is true"
+    prerequisiteTestCaseId: verify-otp-correct-code
+    steps:
+      - goal: "Render AppTopBar(showDivider: true) on scrolled view"
+        hint: "Inspect AppTopBar preferred size and bottom widget"
+        finalScreenAssertion: "Preferred height is kToolbarHeight + 0.5 and a 0.5px border line colored AppColors.outlineVariant is rendered at the bottom"
+
+  # ============================================================================
+  # 9. CORE TELEMETRY & SERVICES MODULE
+  # ============================================================================
+  - id: analytics-log-event-success
+    displayName: "Log GA4 custom events through FirebaseAnalyticsService"
+    steps:
+      - goal: "Trigger custom telemetry event (e.g. qr_scan_completed)"
+        hint: "Invoke AppAnalytics.logEvent(qr_scan_completed, {points: 100})"
+        finalScreenAssertion: "Event is forwarded to FirebaseAnalytics.logEvent() with sanitized parameter map"
+
+  - id: analytics-sanitize-pii
+    displayName: "Sanitize user PII (phone number, raw QR payload) from analytics logs"
+    steps:
+      - goal: "Dispatch analytics event containing user mobile number"
+        hint: "Pass mobile number 9876543210 to telemetry layer"
+        finalScreenAssertion: "Telemetry payload strips raw mobile string and substitutes hashed identifier before reaching Firebase SDK"
+
+  - id: analytics-fail-safe-guard
+    displayName: "Catch SDK exceptions inside _guard without crashing UI"
+    steps:
+      - goal: "Trigger analytics call when Firebase Analytics SDK throws an error"
+        hint: "Simulate FirebaseAnalytics exception during network failure"
+        finalScreenAssertion: "_guard catches exception silently, logs in debug mode, and UI action completes uninterrupted"
+
+  - id: push-notifications-foreground
+    displayName: "Receive FCM push notification in foreground and show in-app toast"
+    prerequisiteTestCaseId: verify-otp-correct-code
+    steps:
+      - goal: "Dispatch FCM push notification to device while app is open"
+        hint: "Send test payload with title Points Credited and body +500 PTS added"
+        finalScreenAssertion: "In-app toast banner appears displaying Points Credited: +500 PTS added and points balance auto-refreshes"
+
+  - id: push-notifications-token-refresh
+    displayName: "Update reactive fcmToken variable on token refresh stream"
+    steps:
+      - goal: "Simulate FCM token refresh event"
+        hint: "Push new token to FirebaseMessaging.instance.onTokenRefresh stream"
+        finalScreenAssertion: "PushNotificationService.fcmToken updates reactively to the new token string"
+
+  - id: remote-config-realtime-update
+    displayName: "Trigger activate() when Remote Config onConfigUpdated emits changes"
+    steps:
+      - goal: "Modify a Remote Config parameter in Firebase console"
+        hint: "Push config update key is_maintenance_mode"
+        finalScreenAssertion: "RemoteConfigService listens to update stream, executes activate(), and app state reflects new parameter value"

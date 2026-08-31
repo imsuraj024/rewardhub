@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(flutter pub *)",
+      "Bash(flutter analyze *)",
+      "Bash(cd /Users/suraj/Projects/rewardhub; echo \"=== AppIcons ===\"; find AppIcons assets -type f \\\\\\( -name \"*.png\" -o -name \"*.svg\" -o -name \"*.jpg\" \\\\\\) 2>/dev/null | head -30; echo \"=== tools ===\"; which rsvg-convert cairosvg magick convert sips node python3 2>/dev/null; echo \"=== chrome ===\"; ls \"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome\" 2>/dev/null && echo \"chrome-found\")",
+      "Read(//Applications/Google Chrome.app/Contents/MacOS/**)",
+      "Bash(python3 -c ' *)",
+      "Bash(which chrome *)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" --max-time 8 \"https://fonts.googleapis.com/css2?family=Inter\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" --max-time 8 \"https://fonts.gstatic.com/\")",
+      "Bash(node -e ' *)",
+      "Bash(./gradlew :app:assembleRelease --dry-run -q)",
+      "Bash(echo \"EXIT=$?\")"
+    ]
+  }
+}
