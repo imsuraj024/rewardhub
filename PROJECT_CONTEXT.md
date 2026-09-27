@@ -11,7 +11,7 @@
 - **Internal / Package Name**: `rewardhub` (`com.loyalty.rewardhub`)
 - **Primary Objective**: Hardware loyalty and rewards application. Customers scan QR codes on Kitox Hardware receipts or partner product packaging, accumulate reward points, and cash out points to UPI or direct bank accounts.
 - **Target Platforms**: Mobile (iOS & Android)
-- **Primary Tech Stack**: Flutter 3.38+, Dart 3.10+, GetX (State Management & DI), Dio (Networking), Shorebird (Code Push), Firebase (Core, Remote Config, FCM, Analytics, Crashlytics).
+- **Primary Tech Stack**: Flutter 3.47+, Dart 3.13+, GetX (State Management & DI), Dio (Networking), Shorebird (Code Push), Firebase (Core, Remote Config, FCM, Analytics, Crashlytics).
 
 ---
 
@@ -63,7 +63,7 @@ lib/
 
 | Layer / Concern | Technology / Library | Purpose |
 | :--- | :--- | :--- |
-| **Framework** | Flutter 3.38+ / Dart 3.10+ | Cross-platform mobile foundation |
+| **Framework** | Flutter 3.47+ / Dart 3.13+ | Cross-platform mobile foundation |
 | **State & DI** | `get: ^4.6.6` | Controllers, Reactive Obx state, Dependency Injection, Named Routes |
 | **HTTP Client** | `dio: ^5.9.2` | REST API communication with logging & connectivity interceptors |
 | **Secure Storage** | `flutter_secure_storage: ^10.3.1` | Encrypted JWT token persistence (`SecureTokenStore`) |

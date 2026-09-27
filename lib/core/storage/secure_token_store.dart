@@ -28,6 +28,10 @@ class SecureTokenStore {
   static const _kLegacyIsLoggedInKey = 'is_logged_in';
 
   static const _storage = FlutterSecureStorage(
+    // Builds on flutter_secure_storage v9 wrote the token with the legacy
+    // ciphers; v10 re-encrypts it on first read. The backup lets an app kill
+    // mid-migration recover instead of signing the user out.
+    aOptions: AndroidOptions(migrateWithBackup: true),
     // Readable after the first unlock following a reboot, so a background
     // refresh does not fail on a locked device, and never restored onto a
     // different device from an encrypted backup.

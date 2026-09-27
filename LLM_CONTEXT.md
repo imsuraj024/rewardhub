@@ -9,7 +9,7 @@
 
 - **App**: **Kitox Hardware** (`rewardhub` codebase)
 - **Goal**: Scans QR codes on Kitox Hardware receipts/products, awards loyalty points, allows instant cash-out via UPI or Bank Account.
-- **Tech Stack**: Flutter 3.38 / Dart 3.10, GetX (State & Routing), Dio (HTTP), Firebase, Shorebird (Code Push), `flutter_secure_storage`.
+- **Tech Stack**: Flutter 3.47 / Dart 3.13, GetX (State & Routing), Dio (HTTP), Firebase, Shorebird (Code Push), `flutter_secure_storage`.
 
 ---
 

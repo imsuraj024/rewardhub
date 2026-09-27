@@ -12,7 +12,7 @@ account.
 
 ## Stack
 
-- Flutter 3.38 / Dart 3.10, GetX for routing, DI and state
+- Flutter 3.47 / Dart 3.13, GetX for routing, DI and state
 - Clean-architecture feature slices under `lib/features/<feature>/{data,domain,presentation}`
 - Dio for HTTP (`lib/core/network`), Firebase Core, Shorebird for code push
 - Auth token in the iOS Keychain / Android Keystore via `flutter_secure_storage`
