@@ -31,6 +31,50 @@ void main() {
       expect(format('98765').text, '98765');
       expect(format('987').text, '987');
     });
+
+    test('drops a +91 country code from pasted or autofilled numbers', () {
+      expect(format('+91 98765 43210').text, '98765 43210');
+      expect(format('919876543210').text, '98765 43210');
+    });
+
+    test('drops a leading trunk 0 from an 11-digit number', () {
+      expect(format('09876543210').text, '98765 43210');
+    });
+
+    test('keeps the cursor after the digit being typed', () {
+      final result = formatter.formatEditUpdate(
+        _value('98765 43210'),
+        const TextEditingValue(
+          text: '987765 43210',
+          selection: TextSelection.collapsed(offset: 3),
+        ),
+      );
+      expect(result.text, '98776 54321');
+      expect(result.selection, const TextSelection.collapsed(offset: 3));
+    });
+
+    test('puts the cursor past the space once it follows the sixth digit', () {
+      final result = formatter.formatEditUpdate(
+        _value('98765'),
+        const TextEditingValue(
+          text: '987654',
+          selection: TextSelection.collapsed(offset: 6),
+        ),
+      );
+      expect(result.text, '98765 4');
+      expect(result.selection.baseOffset, 7);
+    });
+
+    test('an invalid selection falls back to the end', () {
+      final result = formatter.formatEditUpdate(
+        TextEditingValue.empty,
+        const TextEditingValue(
+          text: '9876543210',
+          selection: TextSelection.collapsed(offset: -1),
+        ),
+      );
+      expect(result.selection.baseOffset, 11);
+    });
   });
 
   group('CapitalizeFirstLetterFormatter', () {

@@ -5,4 +5,20 @@
 # Android release signing — NEVER commit these
 android/key.properties
 **/*.jks
-**/*.keystore
+**/*.keystorebuild/
+
+# Flutter/Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+
+# Android
+.gradle/
+android/.gradle/
+android/local.properties
+android/**/GeneratedPluginRegistrant.java
+

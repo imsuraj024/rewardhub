@@ -14,13 +14,13 @@ void main() {
     expect(find.text('EMAIL'), findsOneWidget);
   });
 
-  testWidgets('positive: applies letter-spacing and semi-bold weight',
-      (tester) async {
-    await tester.pumpWidget(wrap(const AuthFieldLabel('PHONE')));
+  testWidgets('positive: uses the fieldLabel role token', (tester) async {
+    await tester.pumpWidget(wrap(const AuthFieldLabel('Phone')));
 
-    final text = tester.widget<Text>(find.text('PHONE'));
-    expect(text.style?.letterSpacing, 1.1);
+    final text = tester.widget<Text>(find.text('Phone'));
+    expect(text.style?.letterSpacing, 0.1);
     expect(text.style?.fontWeight, FontWeight.w600);
+    expect(text.style?.fontSize, 14);
   });
 
   testWidgets('edge: renders an empty label without throwing', (tester) async {

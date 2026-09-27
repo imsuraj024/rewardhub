@@ -44,6 +44,22 @@ void main() {
     expect(AppColors.shadowColor.a, lessThan(0.1));
   });
 
+  test('positive: gold, inverse and scrim tokens have their spec values', () {
+    expect(AppColors.tertiaryStrong, const Color(0xFF8A5100));
+    expect(AppColors.tertiarySurface, const Color(0xFFFFF7F0));
+    expect(AppColors.inverseSurface, const Color(0xFF2E3133));
+    expect(AppColors.onInverseSurface, const Color(0xFFEFF1F3));
+    expect(AppColors.inversePrimary, const Color(0xFFB0C6FF));
+    expect(AppColors.scrim, const Color(0xB8191C1E));
+  });
+
+  test('positive: authBackgroundGradient is the two-stop auth wash', () {
+    const gradient = AppColors.authBackgroundGradient;
+    expect(gradient.colors, const [Color(0xFFE8EDF8), Color(0xFFD6E0F5)]);
+    expect(gradient.begin, Alignment.topLeft);
+    expect(gradient.end, Alignment.bottomRight);
+  });
+
   test('edge: primaryGradient is a two-stop rotated linear gradient', () {
     const gradient = AppColors.primaryGradient;
     expect(gradient, isA<LinearGradient>());

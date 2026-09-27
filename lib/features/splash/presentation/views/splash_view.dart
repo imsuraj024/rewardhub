@@ -163,6 +163,12 @@ class _LogoBadge extends StatelessWidget {
             child: Image.asset(
               'assets/images/app_icon.png',
               fit: BoxFit.contain,
+              excludeFromSemantics: true,
+              errorBuilder: (_, __, ___) => const Icon(
+                Icons.stars_rounded,
+                color: AppColors.primary,
+                size: 48,
+              ),
             ),
           ),
         );

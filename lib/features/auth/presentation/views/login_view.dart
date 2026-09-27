@@ -5,6 +5,7 @@ import 'package:get/get.dart';
 import 'package:rewardhub/core/constants/app_strings.dart';
 import 'package:rewardhub/core/routes/app_routes.dart';
 import 'package:rewardhub/core/theme/app_colors.dart';
+import 'package:rewardhub/core/theme/app_spacing.dart';
 import 'package:rewardhub/core/theme/app_text_styles.dart';
 import 'package:rewardhub/core/utils/phone_input_formatter.dart';
 import 'package:rewardhub/core/widgets/app_button.dart';
@@ -26,11 +27,7 @@ class LoginView extends GetView<LoginController> {
         width: double.infinity,
         height: double.infinity,
         decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFFE8EDF8), Color(0xFFD6E0F5)],
-          ),
+          gradient: AppColors.authBackgroundGradient,
         ),
         child: SafeArea(
           child: Column(
@@ -38,17 +35,17 @@ class LoginView extends GetView<LoginController> {
               Expanded(
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 32,
+                    horizontal: AppSpacing.authGutter,
+                    vertical: AppSpacing.xxxl,
                   ),
                   child: Column(
                     children: [
-                      const SizedBox(height: 16),
+                      const SizedBox(height: AppSpacing.lg),
                       const AuthHeader(
                         title: AppStrings.productName,
                         subtitle: 'Scan, earn, and redeem rewards every day.',
                       ),
-                      const SizedBox(height: 32),
+                      const SizedBox(height: AppSpacing.xxxl),
                       AuthFormCard(
                         child: Form(
                           key: controller.formKey,
@@ -56,10 +53,10 @@ class LoginView extends GetView<LoginController> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Welcome Back',
+                                'Welcome',
                                 style: AppTextStyles.headlineSm,
                               ),
-                              const SizedBox(height: 8),
+                              const SizedBox(height: AppSpacing.sm),
                               Text(
                                 'Enter your mobile number to continue.',
                                 style: AppTextStyles.bodyMd.copyWith(
@@ -68,9 +65,16 @@ class LoginView extends GetView<LoginController> {
                               ),
                               const SizedBox(height: 28),
                               ValidatedTextField(
-                                label: 'MOBILE NUMBER',
+                                label: 'Mobile number',
                                 controller: controller.phoneController,
                                 keyboardType: TextInputType.phone,
+                                textInputAction: TextInputAction.done,
+                                autofillHints: const [
+                                  AutofillHints.telephoneNumber,
+                                ],
+                                onFieldSubmitted: (_) {
+                                  if (!auth.isLoading) controller.onContinue();
+                                },
                                 autofocus: true,
                                 inputFormatters: [PhoneInputFormatter()],
                                 hintText: '98765 43210',
@@ -101,7 +105,12 @@ class LoginView extends GetView<LoginController> {
               ),
               // Primary CTA docks here, staying just above the keyboard.
               Padding(
-                padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.authGutter,
+                  AppSpacing.sm,
+                  AppSpacing.authGutter,
+                  AppSpacing.lg,
+                ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -117,7 +126,7 @@ class LoginView extends GetView<LoginController> {
                         trailingIcon: const Icon(Icons.arrow_forward_rounded),
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: AppSpacing.lg),
                     Center(
                       child: Text.rich(
                         TextSpan(

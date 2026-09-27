@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:rewardhub/core/theme/app_colors.dart';
+import 'package:rewardhub/core/theme/app_radius.dart';
+import 'package:rewardhub/core/theme/app_spacing.dart';
 import 'package:rewardhub/core/theme/app_text_styles.dart';
 
 /// Preset color styles for creative text & split banners.
@@ -139,7 +141,7 @@ class _ImageBannerContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final banner = Container(
       height: height,
       decoration: BoxDecoration(borderRadius: borderRadius),
       child: ClipRRect(
@@ -152,6 +154,7 @@ class _ImageBannerContent extends StatelessWidget {
               Image.network(
                 imageUrl,
                 fit: BoxFit.cover,
+                excludeFromSemantics: true,
                 errorBuilder: (context, error, stackTrace) => Container(
                   color: AppColors.surfaceContainerHigh,
                   child: const Center(
@@ -176,6 +179,7 @@ class _ImageBannerContent extends StatelessWidget {
               Image.asset(
                 imageUrl,
                 fit: BoxFit.cover,
+                excludeFromSemantics: true,
                 errorBuilder: (context, error, stackTrace) => Container(
                   color: AppColors.surfaceContainerHigh,
                   child: const Center(
@@ -195,8 +199,8 @@ class _ImageBannerContent extends StatelessWidget {
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
                     colors: [
-                      Colors.black.withValues(alpha: 0.15),
-                      Colors.black.withValues(alpha: 0.75),
+                      AppColors.onSurface.withValues(alpha: 0.15),
+                      AppColors.scrim,
                     ],
                   ),
                 ),
@@ -206,7 +210,7 @@ class _ImageBannerContent extends StatelessWidget {
             Material(
               color: Colors.transparent,
               child: Padding(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(AppSpacing.lg),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -215,7 +219,7 @@ class _ImageBannerContent extends StatelessWidget {
                       _BannerBadge(
                         text: badgeText!,
                         backgroundColor: AppColors.primary,
-                        textColor: Colors.white,
+                        textColor: AppColors.onPrimary,
                       ),
                     const Spacer(),
                     // Bottom copy + CTA
@@ -223,7 +227,7 @@ class _ImageBannerContent extends StatelessWidget {
                       Text(
                         title!,
                         style: AppTextStyles.titleMd.copyWith(
-                          color: Colors.white,
+                          color: AppColors.onPrimary,
                           fontWeight: FontWeight.w700,
                         ),
                         maxLines: 1,
@@ -234,7 +238,7 @@ class _ImageBannerContent extends StatelessWidget {
                       Text(
                         subtitle!,
                         style: AppTextStyles.bodySm.copyWith(
-                          color: Colors.white.withValues(alpha: 0.85),
+                          color: AppColors.onPrimary,
                         ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
@@ -248,6 +252,12 @@ class _ImageBannerContent extends StatelessWidget {
         ),
       ),
     );
+
+    // With no copy on top, the image itself is the promotion.
+    if (title == null && subtitle == null) {
+      return Semantics(image: true, label: 'Promotion', child: banner);
+    }
+    return banner;
   }
 }
 
@@ -484,13 +494,36 @@ class _AppBannerCarouselState extends State<AppBannerCarousel> {
   int _currentIndex = 0;
   Timer? _timer;
 
+  /// Auto-play is off with reduced motion or a screen reader, since moving
+  /// content can't be read or paused otherwise.
+  bool _autoPlayAllowed = false;
+
   @override
   void initState() {
     super.initState();
     _pageController = PageController(viewportFraction: widget.viewportFraction);
-    if (widget.autoPlay && widget.banners.length > 1) {
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _autoPlayAllowed =
+        widget.autoPlay &&
+        widget.banners.length > 1 &&
+        !MediaQuery.disableAnimationsOf(context) &&
+        !MediaQuery.accessibleNavigationOf(context);
+    if (_autoPlayAllowed) {
       _startTimer();
+    } else {
+      _timer?.cancel();
     }
+  }
+
+  // A finger on the carousel pauses it; lifting it restarts the countdown.
+  void _pause(PointerEvent _) => _timer?.cancel();
+
+  void _resume(PointerEvent _) {
+    if (_autoPlayAllowed) _startTimer();
   }
 
   void _startTimer() {
@@ -518,46 +551,62 @@ class _AppBannerCarouselState extends State<AppBannerCarousel> {
     if (widget.banners.isEmpty) return const SizedBox.shrink();
     if (widget.banners.length == 1) return widget.banners.first;
 
+    // Grows with the text size (up to 1.5x) so larger text isn't clipped.
+    final textGrowth = (MediaQuery.textScalerOf(context).scale(16) / 16).clamp(
+      1.0,
+      1.5,
+    );
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         SizedBox(
-          height: widget.height ?? 150,
-          child: PageView.builder(
-            controller: _pageController,
-            itemCount: widget.banners.length,
-            onPageChanged: (index) => setState(() => _currentIndex = index),
-            itemBuilder: (context, index) {
-              return Padding(
-                padding: EdgeInsets.symmetric(
-                  horizontal: widget.itemSpacing > 0
-                      ? widget.itemSpacing / 2
-                      : 0,
-                ),
-                child: widget.banners[index],
-              );
-            },
+          height: (widget.height ?? 150) * textGrowth,
+          child: Listener(
+            onPointerDown: _pause,
+            onPointerUp: _resume,
+            onPointerCancel: _resume,
+            child: PageView.builder(
+              controller: _pageController,
+              itemCount: widget.banners.length,
+              onPageChanged: (index) => setState(() => _currentIndex = index),
+              itemBuilder: (context, index) {
+                return Padding(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: widget.itemSpacing > 0
+                        ? widget.itemSpacing / 2
+                        : 0,
+                  ),
+                  child: MergeSemantics(
+                    child: Semantics(
+                      label: 'Banner ${index + 1} of ${widget.banners.length}',
+                      child: widget.banners[index],
+                    ),
+                  ),
+                );
+              },
+            ),
           ),
         ),
-        const SizedBox(height: 8),
-        // Dots Indicator
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: List.generate(widget.banners.length, (index) {
-            final isSelected = index == _currentIndex;
-            return AnimatedContainer(
-              duration: const Duration(milliseconds: 250),
-              margin: const EdgeInsets.symmetric(horizontal: 3),
-              width: isSelected ? 18 : 6,
-              height: 6,
-              decoration: BoxDecoration(
-                color: isSelected
-                    ? AppColors.primary
-                    : AppColors.outlineVariant.withValues(alpha: 0.4),
-                borderRadius: BorderRadius.circular(3),
-              ),
-            );
-          }),
+        const SizedBox(height: AppSpacing.sm),
+        // Dots Indicator — position is announced per banner instead.
+        ExcludeSemantics(
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List.generate(widget.banners.length, (index) {
+              final isSelected = index == _currentIndex;
+              return AnimatedContainer(
+                duration: const Duration(milliseconds: 250),
+                margin: const EdgeInsets.symmetric(horizontal: 3),
+                width: isSelected ? 18 : 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  color: isSelected ? AppColors.primary : AppColors.outline,
+                  borderRadius: BorderRadius.circular(3),
+                ),
+              );
+            }),
+          ),
         ),
       ],
     );
@@ -585,13 +634,13 @@ class _BannerBadge extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
         color: backgroundColor,
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(AppRadius.xs),
       ),
       child: Text(
+        // Badge text comes from Remote Config; the caps are a visual style.
         text.toUpperCase(),
         style: AppTextStyles.labelSm.copyWith(
           color: textColor,
-          fontSize: 10,
           fontWeight: FontWeight.w700,
           letterSpacing: 0.6,
         ),
@@ -610,9 +659,6 @@ class _BannerThemeData {
     required this.iconContainerColor,
     required this.badgeBgColor,
     required this.badgeTextColor,
-    required this.ctaBgColor,
-    required this.ctaTextColor,
-    required this.isDarkForeground,
     this.border,
   });
 
@@ -624,26 +670,21 @@ class _BannerThemeData {
   final Color iconContainerColor;
   final Color badgeBgColor;
   final Color badgeTextColor;
-  final Color ctaBgColor;
-  final Color ctaTextColor;
-  final bool isDarkForeground;
   final BoxBorder? border;
 
+  /// Every text/badge pair meets 4.5:1 (ratios in the design spec, DS-16).
   factory _BannerThemeData.fromStyle(AppBannerStyle style) {
     switch (style) {
       case AppBannerStyle.primary:
         return _BannerThemeData(
           gradient: AppColors.primaryGradient,
           backgroundColor: null,
-          textColor: Colors.white,
-          subtitleColor: Colors.white.withValues(alpha: 0.85),
-          iconColor: Colors.white,
-          iconContainerColor: Colors.white.withValues(alpha: 0.2),
-          badgeBgColor: Colors.white.withValues(alpha: 0.25),
-          badgeTextColor: Colors.white,
-          ctaBgColor: Colors.white,
-          ctaTextColor: AppColors.primary,
-          isDarkForeground: true,
+          textColor: AppColors.onPrimary,
+          subtitleColor: AppColors.onPrimary,
+          iconColor: AppColors.onPrimary,
+          iconContainerColor: AppColors.onPrimary.withValues(alpha: 0.2),
+          badgeBgColor: AppColors.onPrimary,
+          badgeTextColor: AppColors.primary,
         );
 
       case AppBannerStyle.gold:
@@ -651,39 +692,28 @@ class _BannerThemeData {
           gradient: const LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [Color(0xFFFFF3E0), Color(0xFFFFE0B2)],
+            colors: [AppColors.tertiarySurface, AppColors.tertiaryFixed],
           ),
           backgroundColor: null,
-          textColor: const Color(0xFF4E2C00),
-          subtitleColor: const Color(0xFF7A4A0B),
-          iconColor: const Color(0xFFB26A00),
-          iconContainerColor: const Color(0xFFFFCC80),
-          badgeBgColor: const Color(0xFFB26A00),
-          badgeTextColor: Colors.white,
-          ctaBgColor: const Color(0xFFB26A00),
-          ctaTextColor: Colors.white,
-          isDarkForeground: false,
-          border: Border.all(color: const Color(0xFFFFCC80), width: 1),
+          textColor: AppColors.onTertiaryFixed,
+          subtitleColor: AppColors.tertiaryStrong,
+          iconColor: AppColors.tertiaryStrong,
+          iconContainerColor: AppColors.surfaceContainerLowest,
+          badgeBgColor: AppColors.tertiaryStrong,
+          badgeTextColor: AppColors.onPrimary,
+          border: Border.all(color: AppColors.tertiary, width: 1),
         );
 
       case AppBannerStyle.success:
-        return _BannerThemeData(
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFFE8F5E9), Color(0xFFC8E6C9)],
-          ),
-          backgroundColor: null,
-          textColor: const Color(0xFF003314),
-          subtitleColor: const Color(0xFF1E5E30),
-          iconColor: const Color(0xFF1E7B34),
-          iconContainerColor: const Color(0xFFA5D6A7),
-          badgeBgColor: const Color(0xFF1E7B34),
-          badgeTextColor: Colors.white,
-          ctaBgColor: const Color(0xFF1E7B34),
-          ctaTextColor: Colors.white,
-          isDarkForeground: false,
-          border: Border.all(color: const Color(0xFFA5D6A7), width: 1),
+        return const _BannerThemeData(
+          gradient: null,
+          backgroundColor: AppColors.successContainer,
+          textColor: AppColors.onSuccessContainer,
+          subtitleColor: AppColors.onSurfaceVariant,
+          iconColor: AppColors.success,
+          iconContainerColor: AppColors.surfaceContainerLowest,
+          badgeBgColor: AppColors.success,
+          badgeTextColor: AppColors.onPrimary,
         );
 
       case AppBannerStyle.dark:
@@ -691,18 +721,17 @@ class _BannerThemeData {
           gradient: const LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [Color(0xFF121826), Color(0xFF1E293B)],
+            colors: [AppColors.onSurface, AppColors.inverseSurface],
           ),
           backgroundColor: null,
-          textColor: Colors.white,
-          subtitleColor: const Color(0xFF94A3B8),
-          iconColor: const Color(0xFF38BDF8),
-          iconContainerColor: const Color(0xFF0C4A6E),
-          badgeBgColor: const Color(0xFF0284C7),
-          badgeTextColor: Colors.white,
-          ctaBgColor: const Color(0xFF38BDF8),
-          ctaTextColor: const Color(0xFF0F172A),
-          isDarkForeground: true,
+          textColor: AppColors.onInverseSurface,
+          subtitleColor: AppColors.outlineVariant,
+          iconColor: AppColors.inversePrimary,
+          iconContainerColor: AppColors.onInverseSurface.withValues(
+            alpha: 0.12,
+          ),
+          badgeBgColor: AppColors.inversePrimary,
+          badgeTextColor: AppColors.onPrimaryFixed,
         );
 
       case AppBannerStyle.subtle:
@@ -715,13 +744,7 @@ class _BannerThemeData {
           iconContainerColor: AppColors.primaryFixed,
           badgeBgColor: AppColors.primaryFixed,
           badgeTextColor: AppColors.primary,
-          ctaBgColor: AppColors.primary,
-          ctaTextColor: Colors.white,
-          isDarkForeground: false,
-          border: Border.all(
-            color: AppColors.outlineVariant.withValues(alpha: 0.4),
-            width: 1,
-          ),
+          border: Border.all(color: AppColors.outlineVariant, width: 1),
         );
     }
   }

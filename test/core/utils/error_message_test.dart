@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rewardhub/core/network/api_exception.dart';
+import 'package:rewardhub/core/network/error_messages.dart';
 import 'package:rewardhub/core/utils/error_message.dart';
 
 /// Exception whose toString does NOT start with the "Exception: " prefix.
@@ -12,10 +13,7 @@ void main() {
   group('resolveErrorMessage', () {
     test('positive: NoInternetException always uses friendly copy', () {
       final msg = resolveErrorMessage(NoInternetException(reason: 'airplane'));
-      expect(
-        msg,
-        'No internet connection. Please check your connection and try again.',
-      );
+      expect(msg, ErrorMessages.offline);
       // The internal reason code must not leak to the user.
       expect(msg, isNot(contains('airplane')));
     });
@@ -35,25 +33,39 @@ void main() {
       );
     });
 
-    test('negative: generic Exception strips the "Exception: " prefix', () {
-      expect(resolveErrorMessage(Exception('boom')), 'boom');
+    test('negative: a generic Exception never leaks its raw text', () {
+      expect(resolveErrorMessage(Exception('boom')), ErrorMessages.generic);
     });
 
-    test('edge: exception without the prefix is returned verbatim', () {
-      expect(resolveErrorMessage(_NoPrefixError()), 'plain failure');
+    test('edge: an exception without the prefix gets the generic message', () {
+      expect(resolveErrorMessage(_NoPrefixError()), ErrorMessages.generic);
     });
 
-    test('edge: FormatException keeps its own type prefix', () {
-      // Its toString is "FormatException: bad" which does NOT begin with
-      // "Exception: ", so nothing is stripped.
+    test('edge: FormatException gets the generic message', () {
       expect(
         resolveErrorMessage(const FormatException('bad')),
-        'FormatException: bad',
+        ErrorMessages.generic,
       );
     });
 
-    test('edge: empty generic exception yields empty remainder', () {
-      expect(resolveErrorMessage(Exception('')), '');
+    test('edge: empty generic exception gets the generic message', () {
+      expect(resolveErrorMessage(Exception('')), ErrorMessages.generic);
+    });
+
+    test('edge: an ApiException with a blank message gets the generic one', () {
+      expect(resolveErrorMessage(ApiException('  ')), ErrorMessages.generic);
+    });
+
+    test('negative: no fallback leaks internal wording', () {
+      for (final msg in [
+        resolveErrorMessage(Exception('Exception: x')),
+        resolveErrorMessage(NoInternetException()),
+        resolveErrorMessage(UnauthorizedException()),
+      ]) {
+        expect(msg, isNot(contains('Exception:')));
+        expect(msg, isNot(contains('accessor')));
+        expect(msg, isNot(contains('Unexpected error')));
+      }
     });
   });
 }

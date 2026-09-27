@@ -2,6 +2,7 @@ import 'package:get/get.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 import 'package:rewardhub/core/analytics/app_analytics.dart';
+import 'package:rewardhub/core/network/error_messages.dart';
 import 'package:rewardhub/core/routes/app_routes.dart';
 import 'package:rewardhub/core/services/remote_config_service.dart';
 import 'package:rewardhub/core/services/shorebird_update_service.dart';
@@ -135,7 +136,9 @@ class AuthController extends GetxController {
       if (response.success) {
         _token.value = response.token;
       } else if (!response.isNewUser) {
-        _errorMessage.value = response.message ?? 'Login failed';
+        _errorMessage.value =
+            response.message ??
+            "Couldn't log you in. Check your number and try again.";
         // Refused by the server rather than a transport failure.
         _analytics.loginFailed('rejected');
       }
@@ -187,7 +190,7 @@ class AuthController extends GetxController {
 
   Future<void> verifyOtp(String otp) async {
     if (_token.value == null) {
-      _errorMessage.value = 'Session expired. Please log in again.';
+      _errorMessage.value = ErrorMessages.sessionExpired;
       _analytics.otpVerificationFailed('no_session');
       return;
     }
@@ -273,7 +276,7 @@ class AuthController extends GetxController {
     _analytics.sessionExpired();
     _analytics.clearIdentity();
 
-    AppToast.warning('Your session has expired. Please log in again.');
+    AppToast.warning(ErrorMessages.sessionExpired);
     Get.offAllNamed(AppRoutes.login);
   }
 

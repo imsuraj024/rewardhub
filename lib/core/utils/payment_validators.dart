@@ -23,7 +23,7 @@ class PaymentValidators {
   static String? upiOrGooglePay(String? value, {bool required = false}) {
     final input = value?.trim() ?? '';
     if (input.isEmpty) {
-      return required ? 'UPI ID or Google Pay number is required' : null;
+      return required ? 'Enter your UPI ID or Google Pay number' : null;
     }
 
     // Google Pay is linked to a mobile number — accept a plain 10-digit number.

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'app_colors.dart';
+import 'app_radius.dart';
 import 'app_text_styles.dart';
 
 abstract final class AppTheme {
@@ -41,9 +42,9 @@ abstract final class AppTheme {
       outlineVariant: AppColors.outlineVariant,
       shadow: AppColors.shadow,
       scrim: AppColors.shadow,
-      inverseSurface: AppColors.onSurface,
-      onInverseSurface: AppColors.surface,
-      inversePrimary: AppColors.primaryFixed,
+      inverseSurface: AppColors.inverseSurface,
+      onInverseSurface: AppColors.onInverseSurface,
+      inversePrimary: AppColors.inversePrimary,
     );
 
     return ThemeData(
@@ -73,7 +74,7 @@ abstract final class AppTheme {
         color: AppColors.surfaceContainerLowest,
         elevation: 0,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(24), // xl = 1.5rem
+          borderRadius: BorderRadius.circular(AppRadius.xl),
         ),
         shadowColor: AppColors.shadowColor,
         margin: EdgeInsets.zero,
@@ -86,7 +87,9 @@ abstract final class AppTheme {
           shadowColor: WidgetStateProperty.all(Colors.transparent),
           textStyle: WidgetStateProperty.all(AppTextStyles.labelMd),
           shape: WidgetStateProperty.all(
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppRadius.md),
+            ),
           ),
           padding: WidgetStateProperty.all(
             const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
@@ -99,10 +102,12 @@ abstract final class AppTheme {
           foregroundColor: WidgetStateProperty.all(AppColors.primary),
           textStyle: WidgetStateProperty.all(AppTextStyles.labelMd),
           side: WidgetStateProperty.all(
-            const BorderSide(color: AppColors.ghostBorder, width: 1),
+            const BorderSide(color: AppColors.outline, width: 1),
           ),
           shape: WidgetStateProperty.all(
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppRadius.md),
+            ),
           ),
           padding: WidgetStateProperty.all(
             const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
@@ -121,28 +126,48 @@ abstract final class AppTheme {
         filled: true,
         fillColor: AppColors.surfaceContainerLow,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none,
+          borderRadius: BorderRadius.circular(AppRadius.md),
+          borderSide: const BorderSide(color: AppColors.outline, width: 1),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none,
+          borderRadius: BorderRadius.circular(AppRadius.md),
+          borderSide: const BorderSide(color: AppColors.outline, width: 1),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(
-            color: Color(0x330040A1), // primary at 20% opacity
-            width: 1,
-          ),
+          borderRadius: BorderRadius.circular(AppRadius.md),
+          borderSide: const BorderSide(color: AppColors.primary, width: 2),
         ),
         errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(AppRadius.md),
           borderSide: const BorderSide(color: AppColors.error, width: 1),
         ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppRadius.md),
+          borderSide: const BorderSide(color: AppColors.error, width: 2),
+        ),
+        disabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppRadius.md),
+          borderSide: const BorderSide(color: AppColors.outlineVariant, width: 1),
+        ),
+        // Long validator messages wrap at 320 dp instead of being cut off.
+        errorMaxLines: 3,
         errorStyle: AppTextStyles.bodySm.copyWith(color: AppColors.error),
         labelStyle: AppTextStyles.bodyMd.copyWith(
           color: AppColors.onSurfaceVariant,
         ),
+      ),
+      // ── Checkbox ─────────────────────────────────────────────────────────────
+      checkboxTheme: CheckboxThemeData(
+        side: const BorderSide(color: AppColors.outline, width: 2),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadius.xs),
+        ),
+        fillColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.selected)
+              ? AppColors.primary
+              : Colors.transparent,
+        ),
+        checkColor: const WidgetStatePropertyAll(AppColors.onPrimary),
       ),
       // ── Chips ────────────────────────────────────────────────────────────────
       chipTheme: ChipThemeData(
@@ -193,7 +218,7 @@ abstract final class AppTheme {
       ),
       // ── Progress Indicator ───────────────────────────────────────────────────
       progressIndicatorTheme: const ProgressIndicatorThemeData(
-        color: AppColors.tertiary,
+        color: AppColors.primary,
         linearTrackColor: AppColors.surfaceContainerHighest,
         linearMinHeight: 12, // thick 12px bars per DESIGN.md
       ),

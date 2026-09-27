@@ -16,7 +16,8 @@ class AppTopBar extends StatelessWidget implements PreferredSizeWidget {
     this.showBackButton = true,
     this.onBackTap,
     this.showLogo = false,
-    this.showDivider = true,
+    this.subtitle,
+    this.showDivider = false,
     this.centerTitle = true,
     this.actions,
     this.onHelpTap,
@@ -26,6 +27,9 @@ class AppTopBar extends StatelessWidget implements PreferredSizeWidget {
   });
 
   final String title;
+
+  /// Optional second line under [title] (e.g. "Page 3 of 40").
+  final String? subtitle;
   final bool showBackButton;
   final VoidCallback? onBackTap;
   final bool showLogo;
@@ -73,7 +77,7 @@ class AppTopBar extends StatelessWidget implements PreferredSizeWidget {
               size: 22,
             ),
             onPressed: onHelpTap,
-            tooltip: 'Help',
+            tooltip: 'Open help',
           ),
         );
       }
@@ -86,11 +90,55 @@ class AppTopBar extends StatelessWidget implements PreferredSizeWidget {
               size: 22,
             ),
             onPressed: onNotificationTap,
-            tooltip: 'Notifications',
+            tooltip: 'Open notifications',
           ),
         );
       }
     }
+
+    final Widget titleRow = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (showLogo && !displayBackButton) ...[
+          Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: AppColors.primary, width: 1.5),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: Image.asset(
+                'assets/images/app_icon.png',
+                width: 28,
+                height: 28,
+                errorBuilder: (context, error, stackTrace) => Container(
+                  width: 28,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryFixed,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: const Icon(
+                    Icons.stars_rounded,
+                    color: AppColors.primary,
+                    size: 18,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+        ],
+        Flexible(
+          child: Text(
+            title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: AppTextStyles.appBarTitle,
+          ),
+        ),
+      ],
+    );
 
     return AppBar(
       backgroundColor: backgroundColor ?? AppColors.surface,
@@ -99,53 +147,23 @@ class AppTopBar extends StatelessWidget implements PreferredSizeWidget {
       centerTitle: centerTitle,
       automaticallyImplyLeading: false,
       leading: leadingWidget,
-      title: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (showLogo && !displayBackButton) ...[
-            Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: AppColors.primary, width: 1.5),
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(6),
-                child: Image.asset(
-                  'assets/images/app_icon.png',
-                  width: 28,
-                  height: 28,
-                  errorBuilder: (context, error, stackTrace) => Container(
-                    width: 28,
-                    height: 28,
-                    decoration: BoxDecoration(
-                      color: AppColors.primaryFixed,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: const Icon(
-                      Icons.stars_rounded,
-                      color: AppColors.primary,
-                      size: 18,
-                    ),
-                  ),
+      title: subtitle == null
+          ? titleRow
+          : Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: centerTitle
+                  ? CrossAxisAlignment.center
+                  : CrossAxisAlignment.start,
+              children: [
+                titleRow,
+                Text(
+                  subtitle!,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTextStyles.bodySm,
                 ),
-              ),
+              ],
             ),
-            const SizedBox(width: 8),
-          ],
-          Flexible(
-            child: Text(
-              title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: AppTextStyles.titleLg.copyWith(
-                color: AppColors.onSurface,
-                fontWeight: FontWeight.w700,
-                fontSize: 18,
-              ),
-            ),
-          ),
-        ],
-      ),
       actions: actionWidgets.isNotEmpty ? actionWidgets : null,
       bottom: showDivider
           ? PreferredSize(

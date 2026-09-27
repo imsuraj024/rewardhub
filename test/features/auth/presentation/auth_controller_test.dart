@@ -142,7 +142,7 @@ void main() {
 
       await c.verifyOtp('123456');
 
-      expect(c.errorMessage, contains('Session expired'));
+      expect(c.errorMessage, contains('logged out'));
       verifyNever(() => verifyOtp.call(any()));
     });
 
@@ -305,7 +305,7 @@ void main() {
       expect(c.isNewUser, isFalse);
       expect(c.errorMessage, isNull);
       expect(toasts.single.type, ToastType.warning);
-      expect(toasts.single.message, contains('session has expired'));
+      expect(toasts.single.message, contains('logged out'));
     });
 
     test('negative: does nothing when there is no live session', () {

@@ -47,7 +47,10 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     final response = LoginResponseModel.fromJson(data as Map<String, dynamic>);
     // success=false with no isNewUser flag is a business-level error
     if (!response.success && !response.isNewUser && response.token == null) {
-      throw ApiException(response.message ?? 'Login failed');
+      throw ApiException(
+        response.message ??
+            "Couldn't log you in. Check your number and try again.",
+      );
     }
     return response;
   }
@@ -100,7 +103,9 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       data as Map<String, dynamic>,
     );
     if (!response.success) {
-      throw ApiException(response.message ?? 'Registration failed');
+      throw ApiException(
+        response.message ?? "Couldn't send your registration. Please try again.",
+      );
     }
     return response;
   }
@@ -116,7 +121,9 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     );
     final response = OtpResponseModel.fromJson(data as Map<String, dynamic>);
     if (!response.success) {
-      throw ApiException(response.message ?? 'OTP verification failed');
+      throw ApiException(
+        response.message ?? "That code didn't work. Check it and try again.",
+      );
     }
     return response;
   }
@@ -129,7 +136,8 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     );
     if (data is Map<String, dynamic> && data['success'] == false) {
       throw ApiException(
-        data['message']?.toString() ?? 'Account deletion failed',
+        data['message']?.toString() ??
+            "Couldn't delete your account. Check your internet and try again.",
       );
     }
   }

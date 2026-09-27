@@ -26,7 +26,10 @@ void main() {
     test('empty passes unless required', () {
       expect(PaymentValidators.upiOrGooglePay(''), isNull);
       expect(PaymentValidators.upiOrGooglePay(null), isNull);
-      expect(PaymentValidators.upiOrGooglePay('', required: true), isNotNull);
+      expect(
+        PaymentValidators.upiOrGooglePay('', required: true),
+        'Enter your UPI ID or Google Pay number',
+      );
     });
 
     test('trims surrounding whitespace', () {

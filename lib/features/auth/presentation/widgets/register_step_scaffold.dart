@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:rewardhub/core/constants/app_strings.dart';
 import 'package:rewardhub/core/theme/app_colors.dart';
+import 'package:rewardhub/core/theme/app_spacing.dart';
 import 'package:rewardhub/core/theme/app_text_styles.dart';
 import 'package:rewardhub/features/auth/presentation/widgets/auth_form_card.dart';
 import 'package:rewardhub/features/auth/presentation/widgets/auth_header.dart';
@@ -10,6 +11,9 @@ import 'package:rewardhub/features/auth/presentation/widgets/auth_header.dart';
 ///
 /// Renders the branded gradient background, header, a step progress indicator
 /// and the white form card, so each step only supplies its own fields.
+///
+/// Set [canPop] to false to block system back (e.g. while uploading);
+/// [onPopBlocked] then runs on each blocked attempt.
 class RegisterStepScaffold extends StatelessWidget {
   const RegisterStepScaffold({
     super.key,
@@ -18,6 +22,8 @@ class RegisterStepScaffold extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.child,
+    this.canPop = true,
+    this.onPopBlocked,
   });
 
   final int currentStep;
@@ -25,69 +31,73 @@ class RegisterStepScaffold extends StatelessWidget {
   final String title;
   final String subtitle;
   final Widget child;
+  final bool canPop;
+  final VoidCallback? onPopBlocked;
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: Container(
-        width: double.infinity,
-        height: double.infinity,
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFFE8EDF8), Color(0xFFD6E0F5)],
+    return PopScope(
+      canPop: canPop,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) onPopBlocked?.call();
+      },
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: Container(
+          width: double.infinity,
+          height: double.infinity,
+          decoration: const BoxDecoration(
+            gradient: AppColors.authBackgroundGradient,
           ),
-        ),
-        child: SafeArea(
-          child: Column(
-            children: [
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 32,
-                  ),
-                  child: Column(
-                    children: [
-                      const SizedBox(height: 16),
-                      const AuthHeader(
-                        title: AppStrings.productName,
-                        subtitle: 'Scan, earn, and redeem rewards every day.',
-                      ),
-                      const SizedBox(height: 24),
-                      _StepIndicator(
-                        currentStep: currentStep,
-                        totalSteps: totalSteps,
-                      ),
-                      const SizedBox(height: 24),
-                      _StepTransition(
-                        // Re-run the entrance animation whenever the step changes.
-                        key: ValueKey(currentStep),
-                        child: AuthFormCard(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(title, style: AppTextStyles.headlineSm),
-                              const SizedBox(height: 8),
-                              Text(
-                                subtitle,
-                                style: AppTextStyles.bodyMd.copyWith(
-                                  color: AppColors.onSurfaceVariant,
+          child: SafeArea(
+            child: Column(
+              children: [
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.authGutter,
+                      vertical: AppSpacing.xxxl,
+                    ),
+                    child: Column(
+                      children: [
+                        const SizedBox(height: AppSpacing.lg),
+                        const AuthHeader(
+                          title: AppStrings.productName,
+                          subtitle: 'Scan, earn, and redeem rewards every day.',
+                        ),
+                        const SizedBox(height: AppSpacing.xxl),
+                        _StepIndicator(
+                          currentStep: currentStep,
+                          totalSteps: totalSteps,
+                        ),
+                        const SizedBox(height: AppSpacing.xxl),
+                        _StepTransition(
+                          // Re-run the entrance animation whenever the step changes.
+                          key: ValueKey(currentStep),
+                          child: AuthFormCard(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(title, style: AppTextStyles.headlineSm),
+                                const SizedBox(height: AppSpacing.sm),
+                                Text(
+                                  subtitle,
+                                  style: AppTextStyles.bodyMd.copyWith(
+                                    color: AppColors.onSurfaceVariant,
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(height: 28),
-                              child,
-                            ],
+                                const SizedBox(height: 28),
+                                child,
+                              ],
+                            ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -174,12 +184,8 @@ class _StepIndicator extends StatelessWidget {
         Align(
           alignment: Alignment.centerLeft,
           child: Text(
-            'STEP $currentStep OF $totalSteps',
-            style: AppTextStyles.labelSm.copyWith(
-              letterSpacing: 1.1,
-              color: AppColors.onSurfaceVariant,
-              fontWeight: FontWeight.w600,
-            ),
+            'Step $currentStep of $totalSteps',
+            style: AppTextStyles.overline,
           ),
         ),
       ],
@@ -226,9 +232,8 @@ class _StepNode extends StatelessWidget {
           : Text(
               '$index',
               style: AppTextStyles.labelMd.copyWith(
-                color: filled
-                    ? AppColors.onPrimary
-                    : AppColors.onSurfaceVariant,
+                color:
+                    filled ? AppColors.onPrimary : AppColors.onSurfaceVariant,
                 fontWeight: FontWeight.w700,
               ),
             ),

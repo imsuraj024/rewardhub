@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rewardhub/core/network/api_exception.dart';
 import 'package:rewardhub/core/network/error_handler.dart';
+import 'package:rewardhub/core/network/error_messages.dart';
 
 void main() {
   final ro = RequestOptions(path: '/x');
@@ -35,7 +36,7 @@ void main() {
       test('positive: $type maps to NetworkException', () {
         final result = ErrorHandler.handle(dio(type));
         expect(result, isA<NetworkException>());
-        expect(result.message, contains('Connection timeout'));
+        expect(result.message, ErrorMessages.timeout);
       });
     }
   });
@@ -97,7 +98,7 @@ void main() {
       final result = ErrorHandler.handle(
         dio(DioExceptionType.badResponse, statusCode: 404),
       );
-      expect(result.message, 'Unexpected error occurred');
+      expect(result.message, ErrorMessages.generic);
       expect(result.statusCode, 404);
     });
 
@@ -107,7 +108,7 @@ void main() {
             statusCode: 500, data: 'raw string body'),
       );
       expect(result, isA<ServerException>());
-      expect(result.message, 'Unexpected error occurred');
+      expect(result.message, ErrorMessages.generic);
     });
 
     test('edge: null statusCode falls through to plain ApiException', () {
@@ -128,7 +129,7 @@ void main() {
     test('positive: maps to ApiException with cancelled message', () {
       final result = ErrorHandler.handle(dio(DioExceptionType.cancel));
       expect(result, isA<ApiException>());
-      expect(result.message, 'Request was cancelled');
+      expect(result.message, ErrorMessages.cancelled);
     });
   });
 
@@ -136,7 +137,7 @@ void main() {
     test('positive: maps to NetworkException', () {
       final result = ErrorHandler.handle(dio(DioExceptionType.connectionError));
       expect(result, isA<NetworkException>());
-      expect(result.message, contains('No internet connection'));
+      expect(result.message, ErrorMessages.cannotConnect);
     });
   });
 
@@ -157,7 +158,7 @@ void main() {
       );
       expect(result, isA<NetworkException>());
       expect(result, isNot(isA<NoInternetException>()));
-      expect(result.message, contains('No internet connection'));
+      expect(result.message, ErrorMessages.cannotConnect);
     });
 
     test('edge: unknown with null error maps to NetworkException', () {
@@ -167,10 +168,12 @@ void main() {
   });
 
   group('badCertificate', () {
-    test('positive: maps to ApiException with SSL message', () {
+    test('positive: maps to ApiException with the insecure-connection message',
+        () {
       final result = ErrorHandler.handle(dio(DioExceptionType.badCertificate));
       expect(result, isA<ApiException>());
-      expect(result.message, 'Bad SSL certificate');
+      expect(result.message, ErrorMessages.insecureConnection);
+      expect(result.message, isNot(contains('SSL')));
     });
   });
 
@@ -178,19 +181,19 @@ void main() {
     test('negative: arbitrary exception maps to generic ApiException', () {
       final result = ErrorHandler.handle(Exception('boom'));
       expect(result, isA<ApiException>());
-      expect(result.message, 'An unexpected error occurred.');
+      expect(result.message, ErrorMessages.generic);
     });
 
     test('edge: plain string maps to generic ApiException', () {
       final result = ErrorHandler.handle('just a string');
       expect(result, isA<ApiException>());
-      expect(result.message, 'An unexpected error occurred.');
+      expect(result.message, ErrorMessages.generic);
     });
 
     test('edge: null maps to generic ApiException', () {
       final result = ErrorHandler.handle(null);
       expect(result, isA<ApiException>());
-      expect(result.message, 'An unexpected error occurred.');
+      expect(result.message, ErrorMessages.generic);
     });
   });
 }

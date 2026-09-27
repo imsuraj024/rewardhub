@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:rewardhub/core/utils/app_toast.dart';
 import 'package:rewardhub/features/auth/data/datasources/registration_draft_store.dart';
 import 'package:rewardhub/features/auth/presentation/controllers/auth_controller.dart';
 import 'package:rewardhub/features/auth/presentation/controllers/kyc_controller.dart';
@@ -17,6 +18,7 @@ void main() {
   late AnalyticsHarness analytics;
   late MockAuthController auth;
   late MockRegistrationDraftStore store;
+  late List<RecordedToast> toasts;
 
   setUpAll(() {
     registerFallbackValue(const RegistrationDraft());
@@ -24,7 +26,7 @@ void main() {
 
   setUp(() {
     analytics = AnalyticsHarness();
-    installGetTestHarness();
+    toasts = installGetTestHarness();
     auth = MockAuthController();
     store = MockRegistrationDraftStore();
     when(() => store.read()).thenAnswer((_) async => const RegistrationDraft());
@@ -185,6 +187,64 @@ void main() {
 
       expect(c.selfiePath.value, '');
       verifyNever(() => store.save(any()));
+    });
+  });
+
+  group('toast copy', () {
+    test('negative: a missing photo asks for both, in plain words', () async {
+      stubRegister();
+      final c = build();
+      c.selfiePath.value = '/s.png';
+
+      await c.onSubmit();
+
+      expect(toasts.single.type, ToastType.warning);
+      expect(
+        toasts.single.message,
+        'Add your Aadhaar photo and a selfie to continue.',
+      );
+    });
+
+    test('negative: a blocked gallery says where to allow access', () async {
+      final c = build();
+
+      await c.pickAadhaar(ImageSource.gallery);
+
+      expect(toasts.single.type, ToastType.error);
+      expect(toasts.single.title, "Couldn't open gallery");
+      expect(
+        toasts.single.message,
+        'Allow access in your phone settings, then try again.',
+      );
+    });
+
+    test('negative: a blocked camera names the camera', () async {
+      final c = build();
+
+      await c.pickSelfie();
+
+      expect(toasts.single.title, "Couldn't open camera");
+      expect(
+        toasts.single.message,
+        'Allow access in your phone settings, then try again.',
+      );
+    });
+
+    test('positive: a successful submit keeps the submitted message',
+        () async {
+      stubRegister();
+      when(() => auth.errorMessage).thenReturn(null);
+      final c = build();
+      c.aadhaarPath.value = '/a.png';
+      c.selfiePath.value = '/s.png';
+
+      await c.onSubmit();
+
+      expect(toasts.single.type, ToastType.success);
+      expect(
+        toasts.single.message,
+        'Your details were submitted for verification.',
+      );
     });
   });
 }

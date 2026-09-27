@@ -1,3 +1,5 @@
+import 'error_messages.dart';
+
 class ApiException implements Exception {
   final String message;
   final int? statusCode;
@@ -9,20 +11,23 @@ class ApiException implements Exception {
 }
 
 class NetworkException extends ApiException {
-  NetworkException([super.message = 'No internet connection']);
+  NetworkException([super.message = ErrorMessages.cannotConnect]);
 }
 
 class ServerException extends ApiException {
-  ServerException([super.message = 'Internal server error', super.statusCode]);
+  ServerException([super.message = ErrorMessages.generic, super.statusCode]);
 }
 
 class UnauthorizedException extends ApiException {
-  UnauthorizedException([String message = 'Unauthorized accessor'])
+  UnauthorizedException([String message = ErrorMessages.sessionExpired])
     : super(message, 401);
 }
 
 class ValidationException extends ApiException {
-  ValidationException([super.message = 'Validation failed', super.statusCode]);
+  ValidationException([
+    super.message = ErrorMessages.invalidInput,
+    super.statusCode,
+  ]);
 }
 
 class NoInternetException extends NetworkException {

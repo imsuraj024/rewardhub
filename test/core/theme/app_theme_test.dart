@@ -38,8 +38,54 @@ void main() {
     expect(theme.cardTheme.color, AppColors.surfaceContainerLowest);
     expect(theme.inputDecorationTheme.filled, isTrue);
     expect(theme.appBarTheme.elevation, 0);
-    expect(theme.progressIndicatorTheme.color, AppColors.tertiary);
+    expect(theme.progressIndicatorTheme.color, AppColors.primary);
     expect(theme.dividerTheme.color, Colors.transparent);
+  });
+
+  testWidgets('positive: inputs show a visible outline, focus and error ring',
+      (tester) async {
+    final input = AppTheme.light.inputDecorationTheme;
+    final enabled = input.enabledBorder as OutlineInputBorder;
+    final focused = input.focusedBorder as OutlineInputBorder;
+    final error = input.errorBorder as OutlineInputBorder;
+    final focusedError = input.focusedErrorBorder as OutlineInputBorder;
+    final disabled = input.disabledBorder as OutlineInputBorder;
+
+    expect(enabled.borderSide.color, AppColors.outline);
+    expect(enabled.borderSide.width, 1);
+    expect(focused.borderSide.color, AppColors.primary);
+    expect(focused.borderSide.width, 2);
+    expect(error.borderSide.color, AppColors.error);
+    expect(error.borderSide.width, 1);
+    expect(focusedError.borderSide.color, AppColors.error);
+    expect(focusedError.borderSide.width, 2);
+    expect(disabled.borderSide.color, AppColors.outlineVariant);
+    expect(input.errorMaxLines, 3);
+  });
+
+  testWidgets('positive: checkbox and outlined button have visible borders',
+      (tester) async {
+    final theme = AppTheme.light;
+    expect(
+      theme.checkboxTheme.side,
+      const BorderSide(color: AppColors.outline, width: 2),
+    );
+    expect(
+      theme.checkboxTheme.fillColor?.resolve({WidgetState.selected}),
+      AppColors.primary,
+    );
+    expect(theme.checkboxTheme.fillColor?.resolve({}), Colors.transparent);
+    expect(
+      theme.outlinedButtonTheme.style?.side?.resolve({}),
+      const BorderSide(color: AppColors.outline, width: 1),
+    );
+  });
+
+  testWidgets('positive: color scheme carries the inverse set', (tester) async {
+    final scheme = AppTheme.light.colorScheme;
+    expect(scheme.inverseSurface, AppColors.inverseSurface);
+    expect(scheme.onInverseSurface, AppColors.onInverseSurface);
+    expect(scheme.inversePrimary, AppColors.inversePrimary);
   });
 
   testWidgets('edge: text theme wires up the app text styles', (tester) async {

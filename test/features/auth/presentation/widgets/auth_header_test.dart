@@ -47,4 +47,42 @@ void main() {
     expect(find.text(title), findsOneWidget);
     expect(find.text(subtitle), findsOneWidget);
   });
+
+  testWidgets('positive: title and subtitle are centred', (tester) async {
+    await tester.pumpWidget(
+      wrap(
+        const AuthHeader(
+          title: 'Kitox Hardware',
+          subtitle: 'Scan, earn, and redeem rewards every day.',
+        ),
+      ),
+    );
+
+    expect(
+      tester.widget<Text>(find.text('Kitox Hardware')).textAlign,
+      TextAlign.center,
+    );
+    expect(
+      tester
+          .widget<Text>(find.text('Scan, earn, and redeem rewards every day.'))
+          .textAlign,
+      TextAlign.center,
+    );
+  });
+
+  testWidgets('edge: the logo is decorative and has a fallback icon',
+      (tester) async {
+    await tester.pumpWidget(wrap(const AuthHeader(title: 'A', subtitle: 'B')));
+
+    final image = tester.widget<Image>(find.byType(Image));
+    expect(image.excludeFromSemantics, isTrue);
+    expect(image.errorBuilder, isNotNull);
+    final fallback = image.errorBuilder!(
+      tester.element(find.byType(Image)),
+      Exception('missing asset'),
+      null,
+    );
+    expect(fallback, isA<Icon>());
+    expect((fallback as Icon).icon, Icons.stars_rounded);
+  });
 }

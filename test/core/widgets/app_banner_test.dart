@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:rewardhub/core/theme/app_colors.dart';
 import 'package:rewardhub/core/widgets/app_banner.dart';
 
 import '../../helpers/harness.dart';
 
 void main() {
+  GoogleFonts.config.allowRuntimeFetching = false;
+
   setUp(installGetTestHarness);
   tearDown(resetGet);
 
@@ -126,6 +130,226 @@ void main() {
 
       expect(find.text('Single Banner'), findsOneWidget);
       expect(find.byType(PageView), findsNothing);
+    });
+  });
+
+  group('AppBannerCarousel behaviour', () {
+    List<Widget> slides() => [
+          AppBanner.text(title: 'Slide 1', subtitle: 'First banner'),
+          AppBanner.text(title: 'Slide 2', subtitle: 'Second banner'),
+          AppBanner.text(title: 'Slide 3', subtitle: 'Third banner'),
+        ];
+
+    Widget carousel({MediaQueryData? media, List<Widget>? banners}) {
+      final child = AppBannerCarousel(banners: banners ?? slides());
+      return MaterialApp(
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => MediaQuery(
+              data: media ?? MediaQuery.of(context),
+              child: child,
+            ),
+          ),
+        ),
+      );
+    }
+
+    // Disposes the carousel so its periodic timer doesn't outlive the test.
+    Future<void> unmount(WidgetTester tester) =>
+        tester.pumpWidget(const SizedBox.shrink());
+
+    testWidgets('positive: auto-plays to the next banner', (tester) async {
+      await tester.pumpWidget(carousel());
+      expect(find.text('Slide 1'), findsOneWidget);
+
+      await tester.pump(const Duration(seconds: 4));
+      await tester.pumpAndSettle();
+      expect(find.text('Slide 2'), findsOneWidget);
+
+      await unmount(tester);
+    });
+
+    testWidgets('edge: a finger on the carousel pauses it until release',
+        (tester) async {
+      await tester.pumpWidget(carousel());
+
+      final gesture = await tester.startGesture(
+        tester.getCenter(find.byType(PageView)),
+      );
+      await tester.pump(const Duration(seconds: 10));
+      await tester.pumpAndSettle();
+      expect(find.text('Slide 1'), findsOneWidget);
+      expect(find.text('Slide 2'), findsNothing);
+
+      await gesture.up();
+      await tester.pump(const Duration(seconds: 3));
+      await tester.pumpAndSettle();
+      expect(find.text('Slide 1'), findsOneWidget);
+
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pumpAndSettle();
+      expect(find.text('Slide 2'), findsOneWidget);
+
+      await unmount(tester);
+    });
+
+    testWidgets('edge: reduced motion turns auto-play off', (tester) async {
+      await tester.pumpWidget(
+        carousel(media: const MediaQueryData(disableAnimations: true)),
+      );
+
+      await tester.pump(const Duration(seconds: 10));
+      expect(find.text('Slide 1'), findsOneWidget);
+      expect(find.text('Slide 2'), findsNothing);
+
+      await unmount(tester);
+    });
+
+    testWidgets('edge: a screen reader turns auto-play off', (tester) async {
+      await tester.pumpWidget(
+        carousel(media: const MediaQueryData(accessibleNavigation: true)),
+      );
+
+      await tester.pump(const Duration(seconds: 10));
+      expect(find.text('Slide 1'), findsOneWidget);
+
+      await unmount(tester);
+    });
+
+    testWidgets('positive: each banner announces its position; dots are '
+        'hidden', (tester) async {
+      final handle = tester.ensureSemantics();
+      await tester.pumpWidget(
+        carousel(media: const MediaQueryData(disableAnimations: true)),
+      );
+
+      expect(
+        find.bySemanticsLabel(RegExp(r'^Banner 1 of 3')),
+        findsOneWidget,
+      );
+      expect(find.bySemanticsLabel(RegExp('Slide 1')), findsOneWidget);
+      final dots = find.ancestor(
+        of: find.byType(AnimatedContainer).first,
+        matching: find.byType(ExcludeSemantics),
+      );
+      expect(dots, findsWidgets);
+
+      handle.dispose();
+      await unmount(tester);
+    });
+
+    testWidgets('positive: inactive dots use the outline colour',
+        (tester) async {
+      await tester.pumpWidget(
+        carousel(media: const MediaQueryData(disableAnimations: true)),
+      );
+
+      final dots = tester
+          .widgetList<AnimatedContainer>(find.byType(AnimatedContainer))
+          .map((c) => (c.decoration! as BoxDecoration).color)
+          .toList();
+      expect(dots, [AppColors.primary, AppColors.outline, AppColors.outline]);
+
+      await unmount(tester);
+    });
+
+    testWidgets('edge: height grows with text size, capped at 1.5x',
+        (tester) async {
+      await tester.pumpWidget(
+        carousel(
+          media: const MediaQueryData(
+            disableAnimations: true,
+            textScaler: TextScaler.linear(2.0),
+          ),
+          banners: [
+            AppBanner.split(
+              title: 'Double points',
+              subtitle: 'Earn double on every scan this weekend only',
+              graphic: const Icon(Icons.star_rounded),
+            ),
+            AppBanner.split(
+              title: 'Refer a friend',
+              subtitle: 'Share your code with another contractor',
+              graphic: const Icon(Icons.star_rounded),
+            ),
+          ],
+        ),
+      );
+
+      expect(tester.takeException(), isNull);
+      expect(tester.getSize(find.byType(PageView)).height, 225);
+
+      await unmount(tester);
+    });
+  });
+
+  group('banner tokens and semantics', () {
+    testWidgets('positive: an image banner with no copy reads as "Promotion"',
+        (tester) async {
+      final handle = tester.ensureSemantics();
+      await pumpApp(
+        tester,
+        AppBanner.image(imageUrl: 'assets/images/banner.png', isNetwork: false),
+      );
+      await tester.pump();
+
+      expect(find.bySemanticsLabel('Promotion'), findsOneWidget);
+      handle.dispose();
+    });
+
+    testWidgets('positive: image banner copy is full-strength onPrimary',
+        (tester) async {
+      await pumpApp(
+        tester,
+        AppBanner.image(
+          imageUrl: 'assets/images/banner.png',
+          isNetwork: false,
+          title: 'Offer',
+          subtitle: 'Details',
+          badgeText: 'new',
+        ),
+      );
+      await tester.pump();
+
+      expect(
+        tester.widget<Text>(find.text('Offer')).style?.color,
+        AppColors.onPrimary,
+      );
+      expect(
+        tester.widget<Text>(find.text('Details')).style?.color,
+        AppColors.onPrimary,
+      );
+      final badge = tester.widget<Text>(find.text('NEW'));
+      expect(badge.style?.color, AppColors.onPrimary);
+      expect(badge.style?.fontSize, 11);
+      expect(find.bySemanticsLabel('Promotion'), findsNothing);
+    });
+
+    testWidgets('positive: the gold preset uses the gold tokens',
+        (tester) async {
+      await pumpApp(
+        tester,
+        AppBanner.text(
+          title: 'Gold',
+          subtitle: 'Warm',
+          badgeText: 'tier',
+          style: AppBannerStyle.gold,
+        ),
+      );
+      await tester.pump();
+
+      expect(
+        tester.widget<Text>(find.text('Gold')).style?.color,
+        AppColors.onTertiaryFixed,
+      );
+      expect(
+        tester.widget<Text>(find.text('Warm')).style?.color,
+        AppColors.tertiaryStrong,
+      );
+      expect(
+        tester.widget<Text>(find.text('TIER')).style?.color,
+        AppColors.onPrimary,
+      );
     });
   });
 }

@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 
 import 'package:rewardhub/core/constants/app_strings.dart';
 import 'package:rewardhub/core/theme/app_colors.dart';
+import 'package:rewardhub/core/theme/app_spacing.dart';
 import 'package:rewardhub/core/theme/app_text_styles.dart';
 import 'package:rewardhub/core/utils/l10n_extension.dart';
 import 'package:rewardhub/core/widgets/app_button.dart';
@@ -24,11 +25,7 @@ class OtpView extends GetView<OtpController> {
         width: double.infinity,
         height: double.infinity,
         decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFFE8EDF8), Color(0xFFD6E0F5)],
-          ),
+          gradient: AppColors.authBackgroundGradient,
         ),
         child: SafeArea(
           child: Column(
@@ -36,17 +33,17 @@ class OtpView extends GetView<OtpController> {
               Expanded(
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 32,
+                    horizontal: AppSpacing.authGutter,
+                    vertical: AppSpacing.xxxl,
                   ),
                   child: Column(
                     children: [
-                      const SizedBox(height: 16),
+                      const SizedBox(height: AppSpacing.lg),
                       AuthHeader(
                         title: AppStrings.productName,
                         subtitle: context.l10n.curatorSubtitle,
                       ),
-                      const SizedBox(height: 32),
+                      const SizedBox(height: AppSpacing.xxxl),
                       AuthFormCard(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -55,7 +52,7 @@ class OtpView extends GetView<OtpController> {
                               context.l10n.verifyAccess,
                               style: AppTextStyles.headlineSm,
                             ),
-                            const SizedBox(height: 8),
+                            const SizedBox(height: AppSpacing.sm),
                             Text.rich(
                               TextSpan(
                                 text: context.l10n.codeSentTo,
@@ -73,19 +70,37 @@ class OtpView extends GetView<OtpController> {
                                 ],
                               ),
                             ),
-                            const SizedBox(height: 32),
-                            AutofillGroup(
-                              child: Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: List.generate(
-                                  OtpController.otpLength,
-                                  (i) => OtpBox(
-                                    controller: controller.controllers[i],
-                                    focusNode: controller.focusNodes[i],
-                                    onChanged: (v) =>
-                                        controller.onDigitChanged(i, v),
-                                    autofocus: i == 0,
+                            const SizedBox(height: AppSpacing.xxxl),
+                            Center(
+                              child: ConstrainedBox(
+                                constraints: const BoxConstraints(
+                                  maxWidth: 376,
+                                ),
+                                child: AutofillGroup(
+                                  child: Row(
+                                    children: [
+                                      for (
+                                        var i = 0;
+                                        i < OtpController.otpLength;
+                                        i++
+                                      ) ...[
+                                        Expanded(
+                                          child: OtpBox(
+                                            controller:
+                                                controller.controllers[i],
+                                            focusNode: controller.focusNodes[i],
+                                            onChanged: (v) =>
+                                                controller.onDigitChanged(i, v),
+                                            autofocus: i == 0,
+                                            semanticLabel:
+                                                'Digit ${i + 1} of '
+                                                '${OtpController.otpLength}',
+                                          ),
+                                        ),
+                                        if (i < OtpController.otpLength - 1)
+                                          const SizedBox(width: AppSpacing.sm),
+                                      ],
+                                    ],
                                   ),
                                 ),
                               ),
@@ -94,7 +109,9 @@ class OtpView extends GetView<OtpController> {
                               final err = auth.errorMessage;
                               if (err == null) return const SizedBox.shrink();
                               return Padding(
-                                padding: const EdgeInsets.only(top: 12),
+                                padding: const EdgeInsets.only(
+                                  top: AppSpacing.md,
+                                ),
                                 child: Text(
                                   err,
                                   style: AppTextStyles.bodySm.copyWith(
@@ -103,7 +120,7 @@ class OtpView extends GetView<OtpController> {
                                 ),
                               );
                             }),
-                            const SizedBox(height: 32),
+                            const SizedBox(height: AppSpacing.xxxl),
                             Obx(
                               () => AppButton(
                                 label: context.l10n.verifyIdentity,
@@ -118,53 +135,47 @@ class OtpView extends GetView<OtpController> {
                                 ),
                               ),
                             ),
-                            const SizedBox(height: 20),
+                            const SizedBox(height: AppSpacing.xl),
                             Center(
-                              child: Obx(
-                                () => Text.rich(
-                                  TextSpan(
-                                    text: context.l10n.didNotGetCode,
+                              child: Wrap(
+                                alignment: WrapAlignment.center,
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                children: [
+                                  Text(
+                                    context.l10n.didNotGetCode.trimRight(),
                                     style: AppTextStyles.bodyMd.copyWith(
                                       color: AppColors.onSurfaceVariant,
                                     ),
-                                    children: [
-                                      WidgetSpan(
-                                        alignment: PlaceholderAlignment.middle,
-                                        child: GestureDetector(
-                                          onTap: controller.canResend.value
-                                              ? controller.onResend
-                                              : null,
-                                          child: Text(
-                                            context.l10n.resendCode,
-                                            style: AppTextStyles.bodyMd
-                                                .copyWith(
-                                                  color:
-                                                      controller.canResend.value
-                                                      ? AppColors.primary
-                                                      : AppColors
-                                                            .onSurfaceVariant,
-                                                  fontWeight: FontWeight.w600,
-                                                ),
-                                          ),
-                                        ),
-                                      ),
-                                    ],
                                   ),
-                                ),
+                                  Obx(
+                                    () => TextButton(
+                                      onPressed: controller.canResend.value
+                                          ? controller.onResend
+                                          : null,
+                                      // The theme's foreground is primary in
+                                      // every state; grey it while waiting.
+                                      style: TextButton.styleFrom(
+                                        disabledForegroundColor:
+                                            AppColors.onSurfaceVariant,
+                                      ),
+                                      child: Text(context.l10n.resendCode),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ],
                         ),
                       ),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: AppSpacing.xxl),
                       Obx(() {
                         if (controller.canResend.value) {
                           return const SizedBox.shrink();
                         }
                         return Container(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 20,
-                            vertical: 12,
+                            horizontal: AppSpacing.xl,
+                            vertical: AppSpacing.md,
                           ),
                           decoration: BoxDecoration(
                             color: AppColors.surfaceContainerLowest,
@@ -185,7 +196,7 @@ class OtpView extends GetView<OtpController> {
                                 size: 16,
                                 color: AppColors.onSurfaceVariant,
                               ),
-                              const SizedBox(width: 8),
+                              const SizedBox(width: AppSpacing.sm),
                               Text(
                                 context.l10n.codeValidFor(
                                   controller.timerLabel,

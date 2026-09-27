@@ -42,8 +42,8 @@ class HomeView extends GetView<HomeController> {
             final activitiesState = controller.state;
             final activities =
                 activitiesState is ViewStateSuccess<List<RecentActivityModel>>
-                ? activitiesState.data ?? const <RecentActivityModel>[]
-                : const <RecentActivityModel>[];
+                    ? activitiesState.data ?? const <RecentActivityModel>[]
+                    : const <RecentActivityModel>[];
             final isWalletSubmitting = walletController.isSubmitting.value;
 
             return ListView(
@@ -97,9 +97,8 @@ class _HomeHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final userName = (name != null && name!.trim().isNotEmpty)
-        ? name!
-        : 'Suraj Mishra';
+    final userName =
+        (name != null && name!.trim().isNotEmpty) ? name! : 'Suraj Mishra';
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
@@ -312,9 +311,8 @@ class _WeeklyBarChart extends StatelessWidget {
                         end: Alignment.topCenter,
                       )
                     : null,
-                color: data.isHigh
-                    ? null
-                    : Colors.white.withValues(alpha: 0.25),
+                color:
+                    data.isHigh ? null : Colors.white.withValues(alpha: 0.25),
               ),
             ),
             const SizedBox(height: 8),
@@ -344,8 +342,9 @@ class _WeeklyBarChart extends StatelessWidget {
 
     for (final a in activities) {
       if (a.isCredit) {
-        final diff =
-            a.date.difference(DateTime(monday.year, monday.month, monday.day)).inDays;
+        final diff = a.date
+            .difference(DateTime(monday.year, monday.month, monday.day))
+            .inDays;
         if (diff >= 0 && diff < 7) {
           totals[diff] += a.points;
         }
@@ -734,8 +733,7 @@ class _HomePromoBannerSection extends StatelessWidget {
         graphic: Icon(
           b.iconData,
           size: 38,
-          color:
-              (b.bannerStyle == AppBannerStyle.primary ||
+          color: (b.bannerStyle == AppBannerStyle.primary ||
                   b.bannerStyle == AppBannerStyle.dark)
               ? Colors.white
               : AppColors.primary,
@@ -839,12 +837,21 @@ class _HowToEarnPointsCard extends StatelessWidget {
               // Step 2
               Expanded(
                 child: _buildStep(
-                  stepBadge: const Text(
-                    '2',
-                    style: TextStyle(
+                  stepBadge: Container(
+                    width: 18,
+                    height: 18,
+                    decoration: const BoxDecoration(
                       color: Color(0xFF2563EB),
-                      fontWeight: FontWeight.w900,
-                      fontSize: 15,
+                      shape: BoxShape.circle,
+                    ),
+                    alignment: Alignment.center,
+                    child: const Text(
+                      '2',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 11,
+                      ),
                     ),
                   ),
                   stepColor: const Color(0xFF2563EB),
@@ -865,12 +872,21 @@ class _HowToEarnPointsCard extends StatelessWidget {
               // Step 3
               Expanded(
                 child: _buildStep(
-                  stepBadge: const Text(
-                    '3',
-                    style: TextStyle(
+                  stepBadge: Container(
+                    width: 18,
+                    height: 18,
+                    decoration: const BoxDecoration(
                       color: Color(0xFFEA580C),
-                      fontWeight: FontWeight.w900,
-                      fontSize: 15,
+                      shape: BoxShape.circle,
+                    ),
+                    alignment: Alignment.center,
+                    child: const Text(
+                      '3',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 11,
+                      ),
                     ),
                   ),
                   stepColor: const Color(0xFFEA580C),
@@ -963,5 +979,3 @@ class _HowToEarnPointsCard extends StatelessWidget {
     );
   }
 }
-
-

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import 'package:rewardhub/core/theme/app_colors.dart';
+import 'package:rewardhub/core/theme/app_radius.dart';
+import 'package:rewardhub/core/theme/app_spacing.dart';
 import 'package:rewardhub/core/theme/app_text_styles.dart';
 
 /// Severity of a toast, driving its colors and leading icon.
@@ -14,8 +16,10 @@ enum ToastType { success, error, warning, info }
 ///
 /// ```dart
 /// AppToast.success('Profile updated');
-/// AppToast.error('Something went wrong', title: 'Upload failed');
+/// AppToast.error("Couldn't upload your photo.", title: 'Upload failed');
 /// ```
+///
+/// A title appears only when one is passed; the message carries the meaning.
 abstract final class AppToast {
   /// Redirects toast presentation, for tests.
   ///
@@ -60,14 +64,15 @@ abstract final class AppToast {
       messageText: _Body(
         icon: scheme.icon,
         accent: scheme.accent,
-        title: title ?? scheme.defaultTitle,
+        onContainer: scheme.onContainer,
+        title: title,
         message: message,
       ),
       snackPosition: SnackPosition.TOP,
       backgroundColor: scheme.background,
       borderColor: scheme.accent.withValues(alpha: 0.4),
       borderWidth: 1,
-      borderRadius: 14,
+      borderRadius: AppRadius.lg,
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       duration: const Duration(seconds: 3),
@@ -92,7 +97,6 @@ abstract final class AppToast {
           accent: AppColors.success,
           background: AppColors.successContainer,
           onContainer: AppColors.onSuccessContainer,
-          defaultTitle: 'Success',
         );
       case ToastType.error:
         return const _ToastScheme(
@@ -100,7 +104,6 @@ abstract final class AppToast {
           accent: AppColors.error,
           background: AppColors.errorContainer,
           onContainer: AppColors.onErrorContainer,
-          defaultTitle: 'Something went wrong',
         );
       case ToastType.warning:
         return const _ToastScheme(
@@ -108,7 +111,6 @@ abstract final class AppToast {
           accent: AppColors.warning,
           background: AppColors.warningContainer,
           onContainer: AppColors.onWarningContainer,
-          defaultTitle: 'Heads up',
         );
       case ToastType.info:
         return const _ToastScheme(
@@ -116,7 +118,6 @@ abstract final class AppToast {
           accent: AppColors.info,
           background: AppColors.infoContainer,
           onContainer: AppColors.onInfoContainer,
-          defaultTitle: 'Info',
         );
     }
   }
@@ -128,59 +129,65 @@ class _ToastScheme {
     required this.accent,
     required this.background,
     required this.onContainer,
-    required this.defaultTitle,
   });
 
   final IconData icon;
   final Color accent;
   final Color background;
   final Color onContainer;
-  final String defaultTitle;
 }
 
 class _Body extends StatelessWidget {
   const _Body({
     required this.icon,
     required this.accent,
+    required this.onContainer,
     required this.title,
     required this.message,
   });
 
   final IconData icon;
   final Color accent;
-  final String title;
+  final Color onContainer;
+  final String? title;
   final String message;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon, color: accent, size: 22),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                title,
-                style: AppTextStyles.labelMd.copyWith(
-                  color: AppColors.onSurface,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                message,
-                style: AppTextStyles.bodySm.copyWith(
-                  color: AppColors.onSurfaceVariant,
-                ),
-              ),
-            ],
+    final messageText = Text(
+      message,
+      style: AppTextStyles.bodyMd.copyWith(color: onContainer),
+    );
+
+    return Semantics(
+      container: true,
+      liveRegion: true,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: accent, size: 22),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: title == null
+                ? messageText
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        title!,
+                        style: AppTextStyles.labelLg.copyWith(
+                          color: onContainer,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      messageText,
+                    ],
+                  ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

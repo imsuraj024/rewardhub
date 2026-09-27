@@ -59,4 +59,28 @@ void main() {
     expect(find.text('three'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('edge: compact phones get 16 dp padding, others 24 dp',
+      (tester) async {
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    EdgeInsetsGeometry? paddingAt(double width) {
+      final container = tester.widget<Container>(
+        find.descendant(
+          of: find.byType(AuthFormCard),
+          matching: find.byType(Container),
+        ),
+      );
+      return container.padding;
+    }
+
+    tester.view.physicalSize = const Size(320, 640);
+    await tester.pumpWidget(wrap(const AuthFormCard(child: SizedBox())));
+    expect(paddingAt(320), const EdgeInsets.all(16));
+
+    tester.view.physicalSize = const Size(360, 640);
+    await tester.pumpWidget(wrap(const AuthFormCard(child: SizedBox())));
+    expect(paddingAt(360), const EdgeInsets.all(24));
+  });
 }

@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rewardhub/core/network/api_exception.dart';
+import 'package:rewardhub/core/network/error_messages.dart';
 
 void main() {
   group('ApiException', () {
@@ -35,7 +36,7 @@ void main() {
     });
 
     test('edge: default message used', () {
-      expect(NetworkException().message, 'No internet connection');
+      expect(NetworkException().message, ErrorMessages.cannotConnect);
     });
 
     test('positive: is an ApiException', () {
@@ -53,7 +54,7 @@ void main() {
 
     test('edge: default message and null status', () {
       final e = ServerException();
-      expect(e.message, 'Internal server error');
+      expect(e.message, ErrorMessages.generic);
       expect(e.statusCode, isNull);
     });
 
@@ -69,7 +70,7 @@ void main() {
     });
 
     test('edge: default message', () {
-      expect(UnauthorizedException().message, 'Unauthorized accessor');
+      expect(UnauthorizedException().message, ErrorMessages.sessionExpired);
       expect(UnauthorizedException().statusCode, 401);
     });
 
@@ -87,7 +88,7 @@ void main() {
 
     test('edge: default message and null status', () {
       final e = ValidationException();
-      expect(e.message, 'Validation failed');
+      expect(e.message, ErrorMessages.invalidInput);
       expect(e.statusCode, isNull);
     });
 

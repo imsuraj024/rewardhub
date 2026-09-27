@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:rewardhub/core/theme/app_colors.dart';
 import 'package:rewardhub/core/utils/app_toast.dart';
 
 import '../../helpers/harness.dart';
@@ -25,7 +26,7 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('positive: success shows the message and default title',
+  testWidgets('positive: success shows the message and icon, no title',
       (tester) async {
     await pumpApp(tester, const SizedBox.shrink());
 
@@ -33,13 +34,13 @@ void main() {
     await settleToast(tester);
 
     expect(find.text('Profile updated'), findsOneWidget);
-    expect(find.text('Success'), findsOneWidget);
+    expect(find.text('Success'), findsNothing);
     expect(find.byIcon(Icons.check_circle_rounded), findsOneWidget);
 
     await dismissToast(tester);
   });
 
-  testWidgets('positive: error shows its default title and icon',
+  testWidgets('positive: error shows only its message and icon',
       (tester) async {
     await pumpApp(tester, const SizedBox.shrink());
 
@@ -47,13 +48,13 @@ void main() {
     await settleToast(tester);
 
     expect(find.text('Upload failed'), findsOneWidget);
-    expect(find.text('Something went wrong'), findsOneWidget);
+    expect(find.text('Something went wrong'), findsNothing);
     expect(find.byIcon(Icons.error_rounded), findsOneWidget);
 
     await dismissToast(tester);
   });
 
-  testWidgets('positive: warning shows its default title and icon',
+  testWidgets('positive: warning shows only its message and icon',
       (tester) async {
     await pumpApp(tester, const SizedBox.shrink());
 
@@ -61,13 +62,13 @@ void main() {
     await settleToast(tester);
 
     expect(find.text('Battery low'), findsOneWidget);
-    expect(find.text('Heads up'), findsOneWidget);
+    expect(find.text('Heads up'), findsNothing);
     expect(find.byIcon(Icons.warning_rounded), findsOneWidget);
 
     await dismissToast(tester);
   });
 
-  testWidgets('positive: info shows its default title and icon',
+  testWidgets('positive: info shows only its message and icon',
       (tester) async {
     await pumpApp(tester, const SizedBox.shrink());
 
@@ -75,13 +76,13 @@ void main() {
     await settleToast(tester);
 
     expect(find.text('New feature available'), findsOneWidget);
-    expect(find.text('Info'), findsOneWidget);
+    expect(find.text('Info'), findsNothing);
     expect(find.byIcon(Icons.info_rounded), findsOneWidget);
 
     await dismissToast(tester);
   });
 
-  testWidgets('edge: custom title overrides the default', (tester) async {
+  testWidgets('edge: a title appears only when one is passed', (tester) async {
     await pumpApp(tester, const SizedBox.shrink());
 
     AppToast.error('Disk is full', title: 'Storage error');
@@ -120,7 +121,8 @@ void main() {
     await settleToast(tester);
 
     expect(tester.takeException(), isNull);
-    expect(find.text('Info'), findsOneWidget);
+    expect(find.byIcon(Icons.info_rounded), findsOneWidget);
+    expect(find.text('Info'), findsNothing);
 
     await dismissToast(tester);
   });
@@ -134,6 +136,36 @@ void main() {
 
     expect(tester.takeException(), isNull);
     expect(find.text(message), findsOneWidget);
+
+    await dismissToast(tester);
+  });
+
+  testWidgets('positive: the message is 14 px in the on-container colour',
+      (tester) async {
+    await pumpApp(tester, const SizedBox.shrink());
+
+    AppToast.error("You're offline. Check your internet and try again.");
+    await settleToast(tester);
+
+    final text = tester.widget<Text>(
+      find.text("You're offline. Check your internet and try again."),
+    );
+    expect(text.style?.fontSize, 14);
+    expect(text.style?.color, AppColors.onErrorContainer);
+
+    await dismissToast(tester);
+  });
+
+  testWidgets('positive: a passed title uses the on-container colour',
+      (tester) async {
+    await pumpApp(tester, const SizedBox.shrink());
+
+    AppToast.success('Saved', title: 'Profile');
+    await settleToast(tester);
+
+    final title = tester.widget<Text>(find.text('Profile'));
+    expect(title.style?.color, AppColors.onSuccessContainer);
+    expect(title.style?.fontWeight, FontWeight.w700);
 
     await dismissToast(tester);
   });

@@ -51,4 +51,40 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(find.byType(PreferredSize), findsOneWidget);
   });
+
+  testWidgets('positive: renders no divider by default', (tester) async {
+    await tester.pumpWidget(wrap(const AppTopBar()));
+
+    final appBar = tester.widget<AppBar>(find.byType(AppBar));
+    expect(appBar.bottom, isNull);
+    expect(find.byType(PreferredSize), findsNothing);
+  });
+
+  testWidgets('positive: renders a subtitle under the title within 56 dp',
+      (tester) async {
+    await tester.pumpWidget(
+      wrap(const AppTopBar(title: 'Catalogue', subtitle: 'Page 3 of 40')),
+    );
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('Catalogue'), findsOneWidget);
+    expect(find.text('Page 3 of 40'), findsOneWidget);
+    final titleTop = tester.getTopLeft(find.text('Catalogue')).dy;
+    final subtitleBottom = tester.getBottomLeft(find.text('Page 3 of 40')).dy;
+    expect(subtitleBottom - titleTop, lessThanOrEqualTo(kToolbarHeight));
+    expect(
+      tester.getTopLeft(find.text('Page 3 of 40')).dy,
+      greaterThan(titleTop),
+    );
+  });
+
+  testWidgets('positive: action tooltips describe what they open',
+      (tester) async {
+    await tester.pumpWidget(
+      wrap(AppTopBar(onHelpTap: () {}, onNotificationTap: () {})),
+    );
+
+    expect(find.byTooltip('Open help'), findsOneWidget);
+    expect(find.byTooltip('Open notifications'), findsOneWidget);
+  });
 }

@@ -20,6 +20,7 @@ import 'package:rewardhub/core/services/push_notification_service.dart';
 import 'package:rewardhub/core/services/remote_config_service.dart';
 import 'package:rewardhub/core/theme/app_theme.dart';
 import 'package:rewardhub/core/utils/alice_service.dart';
+import 'package:rewardhub/core/widgets/connectivity_widget.dart';
 import 'package:rewardhub/firebase_options.dart';
 import 'package:rewardhub/l10n/app_localizations.dart';
 
@@ -106,6 +107,9 @@ class RewardHubApp extends StatelessWidget {
         // inspector's navigator (and its shake handler) never ships.
         navigatorKey: aliceRef?.getNavigatorKey(),
         getPages: AppPages.pages,
+        // Offline / slow-connection banner above every route.
+        builder: (context, child) =>
+            ConnectivityWidget(child: child ?? const SizedBox.shrink()),
       ),
     );
   }

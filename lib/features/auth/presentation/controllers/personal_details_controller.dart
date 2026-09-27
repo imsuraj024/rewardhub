@@ -3,7 +3,6 @@ import 'package:get/get.dart';
 
 import 'package:rewardhub/core/analytics/app_analytics.dart';
 import 'package:rewardhub/core/routes/app_routes.dart';
-import 'package:rewardhub/core/utils/app_toast.dart';
 import 'package:rewardhub/features/auth/data/datasources/registration_draft_store.dart';
 
 /// Step 1 of registration — collects the user's personal details.
@@ -22,6 +21,9 @@ class PersonalDetailsController extends GetxController {
   final referralController = TextEditingController();
 
   final agreedToTerms = false.obs;
+
+  /// Shows the inline "please accept" error under the terms row.
+  final showTermsError = false.obs;
 
   RegistrationDraft _draft = const RegistrationDraft();
 
@@ -48,13 +50,14 @@ class PersonalDetailsController extends GetxController {
 
   void setAgreedToTerms(bool value) {
     agreedToTerms.value = value;
+    if (value) showTermsError.value = false;
   }
 
   Future<void> onNext() async {
     if (!formKey.currentState!.validate()) return;
     if (!agreedToTerms.value) {
       _analytics.termsNotAccepted();
-      AppToast.warning('You must agree to the Terms of Service to continue.');
+      showTermsError.value = true;
       return;
     }
 

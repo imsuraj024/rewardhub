@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 
 import 'package:rewardhub/core/theme/app_colors.dart';
+import 'package:rewardhub/core/theme/app_spacing.dart';
 import 'package:rewardhub/core/theme/app_text_styles.dart';
 import 'package:rewardhub/core/utils/payment_validators.dart';
 import 'package:rewardhub/core/utils/text_input_formatters.dart';
@@ -20,29 +21,34 @@ class AccountDetailsView extends GetView<AccountDetailsController> {
     return RegisterStepScaffold(
       currentStep: 2,
       totalSteps: 3,
-      title: 'Account Details',
-      subtitle: 'Where should we send your rewards?',
+      title: 'Payment details',
+      subtitle: 'Where should we send your money?',
       child: Form(
         key: controller.formKey,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            ValidatedTextField(
-              label: 'UPI ID / GOOGLE PAY NUMBER',
-              controller: controller.upiController,
-              keyboardType: TextInputType.emailAddress,
-              hintText: 'name@upi or 98765 43210',
-              prefixIcon: const Icon(Icons.account_balance_wallet_outlined),
-              validator: (v) =>
-                  PaymentValidators.upiOrGooglePay(v, required: true),
+            Obx(
+              () => ValidatedTextField(
+                label: 'UPI ID or Google Pay number',
+                controller: controller.upiController,
+                keyboardType: TextInputType.emailAddress,
+                textInputAction: controller.showBankDetails.value
+                    ? TextInputAction.next
+                    : TextInputAction.done,
+                hintText: 'name@okhdfcbank or 10-digit number',
+                prefixIcon: const Icon(Icons.account_balance_wallet_outlined),
+                validator: (v) =>
+                    PaymentValidators.upiOrGooglePay(v, required: true),
+              ),
             ),
-            const SizedBox(height: 20),
-            _OrDivider(),
-            const SizedBox(height: 20),
+            const SizedBox(height: AppSpacing.xl),
+            const _OrDivider(),
+            const SizedBox(height: AppSpacing.xl),
             Obx(() {
               if (!controller.showBankDetails.value) {
                 return AppButton(
-                  label: 'Add Bank Account Details',
+                  label: 'Add bank account',
                   onPressed: controller.revealBankDetails,
                   variant: AppButtonVariant.outline,
                   isFullWidth: true,
@@ -54,24 +60,31 @@ class AccountDetailsView extends GetView<AccountDetailsController> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   ValidatedTextField(
-                    label: 'ACCOUNT NUMBER',
+                    label: 'Account number',
                     optional: true,
                     controller: controller.accountNumberController,
                     keyboardType: TextInputType.number,
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    textInputAction: TextInputAction.next,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.digitsOnly,
+                      LengthLimitingTextInputFormatter(18),
+                    ],
                     hintText: '1234567890',
                     prefixIcon: const Icon(Icons.account_balance_outlined),
                     validator: PaymentValidators.accountNumber,
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: AppSpacing.xl),
                   ValidatedTextField(
-                    label: 'IFSC CODE',
+                    label: 'IFSC code',
                     optional: true,
                     controller: controller.ifscController,
                     textCapitalization: TextCapitalization.characters,
+                    textInputAction: TextInputAction.done,
+                    onFieldSubmitted: (_) => controller.onNext(),
                     inputFormatters: [
                       FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z0-9]')),
                       UpperCaseTextFormatter(),
+                      LengthLimitingTextInputFormatter(11),
                     ],
                     hintText: 'SBIN0001234',
                     prefixIcon: const Icon(Icons.qr_code_2_outlined),
@@ -88,7 +101,7 @@ class AccountDetailsView extends GetView<AccountDetailsController> {
               size: AppButtonSize.lg,
               trailingIcon: const Icon(Icons.arrow_forward_rounded),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSpacing.md),
             AppButton(
               label: 'Back',
               onPressed: Get.back,
@@ -104,7 +117,10 @@ class AccountDetailsView extends GetView<AccountDetailsController> {
   }
 }
 
+/// Section label for the optional bank fields, between two decorative lines.
 class _OrDivider extends StatelessWidget {
+  const _OrDivider();
+
   @override
   Widget build(BuildContext context) {
     final line = Expanded(
@@ -113,22 +129,32 @@ class _OrDivider extends StatelessWidget {
         thickness: 1,
       ),
     );
-    return Row(
-      children: [
-        line,
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Text(
-            'OR ADD BANK DETAILS',
-            style: AppTextStyles.labelSm.copyWith(
-              letterSpacing: 1.1,
-              color: AppColors.onSurfaceVariant,
-              fontWeight: FontWeight.w600,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // The label takes its natural width, wrapping only when it would
+        // leave less than AppSpacing.xxl of line on each side.
+        final maxLabelWidth =
+            (constraints.maxWidth - 2 * (AppSpacing.md + AppSpacing.xxl))
+                .clamp(0.0, double.infinity);
+        return Row(
+          children: [
+            line,
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: maxLabelWidth),
+                child: Text(
+                  'Bank account (optional)',
+                  maxLines: 2,
+                  textAlign: TextAlign.center,
+                  style: AppTextStyles.overline,
+                ),
+              ),
             ),
-          ),
-        ),
-        line,
-      ],
+            line,
+          ],
+        );
+      },
     );
   }
 }

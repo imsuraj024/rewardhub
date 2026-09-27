@@ -95,10 +95,10 @@ class KycController extends GetxController {
       );
       _analytics.kycCaptureFailed(source: _sourceOf(source));
       AppToast.error(
-        'Please grant the required permission and try again.',
-        title:
-            'Could not open '
-            '${source == ImageSource.camera ? 'camera' : 'gallery'}',
+        'Allow access in your phone settings, then try again.',
+        title: source == ImageSource.camera
+            ? "Couldn't open camera"
+            : "Couldn't open gallery",
       );
       return null;
     }
@@ -118,7 +118,7 @@ class KycController extends GetxController {
         hasAadhaar: aadhaarPath.value.isNotEmpty,
         hasSelfie: selfiePath.value.isNotEmpty,
       );
-      AppToast.warning('Please upload both your Aadhaar photo and a selfie.');
+      AppToast.warning('Add your Aadhaar photo and a selfie to continue.');
       return;
     }
 
@@ -141,7 +141,8 @@ class KycController extends GetxController {
       _analytics.registrationStepCompleted(RegistrationStep.kyc);
       AppToast.success('Your details were submitted for verification.');
       await _draftStore.clear();
-      Get.toNamed(AppRoutes.login);
+      // Registration is done: Login replaces the whole stack.
+      Get.offAllNamed(AppRoutes.login);
     } else {
       AppToast.error(_auth.errorMessage!);
     }

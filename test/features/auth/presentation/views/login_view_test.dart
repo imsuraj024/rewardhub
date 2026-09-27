@@ -77,10 +77,10 @@ void main() {
     await pump(tester);
 
     expect(find.text('Kitox Hardware'), findsOneWidget);
-    expect(find.text('Welcome Back'), findsOneWidget);
+    expect(find.text('Welcome'), findsOneWidget);
     expect(find.text('Enter your mobile number to continue.'), findsOneWidget);
     expect(find.text('Continue'), findsOneWidget);
-    expect(find.text('MOBILE NUMBER'), findsOneWidget);
+    expect(find.text('Mobile number'), findsOneWidget);
     expect(find.textContaining('Register'), findsWidgets);
   });
 
@@ -103,5 +103,37 @@ void main() {
     await tester.tap(find.byType(AppButton));
     await tester.pump();
     expect(login.onContinueCalls, 0);
+  });
+
+  testWidgets('positive: the keyboard Done key submits the number',
+      (tester) async {
+    await pump(tester);
+
+    await tester.showKeyboard(find.byType(TextFormField));
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pump();
+
+    expect(login.onContinueCalls, 1);
+  });
+
+  testWidgets('negative: Done does nothing while a login is in flight',
+      (tester) async {
+    auth.loading.value = true;
+    await pump(tester);
+
+    await tester.showKeyboard(find.byType(TextFormField));
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pump();
+
+    expect(login.onContinueCalls, 0);
+  });
+
+  testWidgets('edge: the phone field offers the phone-number autofill hint',
+      (tester) async {
+    await pump(tester);
+
+    final field = tester.widget<TextField>(find.byType(TextField));
+    expect(field.autofillHints, contains(AutofillHints.telephoneNumber));
+    expect(field.textInputAction, TextInputAction.done);
   });
 }

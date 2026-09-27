@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import 'package:rewardhub/core/constants/app_strings.dart';
 import 'package:rewardhub/core/services/shorebird_update_service.dart';
 import 'package:rewardhub/core/theme/app_colors.dart';
+import 'package:rewardhub/core/theme/app_radius.dart';
+import 'package:rewardhub/core/theme/app_spacing.dart';
 import 'package:rewardhub/core/theme/app_text_styles.dart';
 import 'package:rewardhub/core/widgets/app_button.dart';
 
@@ -46,27 +49,34 @@ class _ShorebirdUpdateDialogState extends State<ShorebirdUpdateDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return PopScope(
-      canPop: !widget.service.isDownloading,
-      child: Dialog(
-        backgroundColor: AppColors.surfaceContainerLowest,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Obx(() {
-            final isDownloading = widget.service.isDownloading;
-            final isRestartReady =
-                _isRestartReady || widget.service.isRestartRequired;
+    // The Obx encloses PopScope so back stays blocked for exactly as long as
+    // the download runs.
+    return Obx(() {
+      final isDownloading = widget.service.isDownloading;
+      final isRestartReady =
+          _isRestartReady || widget.service.isRestartRequired;
 
-            return Column(
+      return PopScope(
+        canPop: !isDownloading,
+        child: Dialog(
+          backgroundColor: AppColors.surfaceContainerLowest,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadius.xl),
+          ),
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.xxl,
+            vertical: AppSpacing.xxl,
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.xxl),
+            child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 _buildHeaderIcon(
                   isDownloading: isDownloading,
                   isRestartReady: isRestartReady,
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: AppSpacing.xl),
                 _buildTitle(
                   isDownloading: isDownloading,
                   isRestartReady: isRestartReady,
@@ -76,21 +86,17 @@ class _ShorebirdUpdateDialogState extends State<ShorebirdUpdateDialog> {
                   isDownloading: isDownloading,
                   isRestartReady: isRestartReady,
                 ),
-                if (!isDownloading && !isRestartReady) ...[
-                  const SizedBox(height: 16),
-                  _buildPatchInfoBadge(),
-                ],
-                const SizedBox(height: 24),
+                const SizedBox(height: AppSpacing.xxl),
                 _buildActions(
                   isDownloading: isDownloading,
                   isRestartReady: isRestartReady,
                 ),
               ],
-            );
-          }),
+            ),
+          ),
         ),
-      ),
-    );
+      );
+    });
   }
 
   Widget _buildHeaderIcon({
@@ -175,9 +181,9 @@ class _ShorebirdUpdateDialogState extends State<ShorebirdUpdateDialog> {
     required bool isRestartReady,
   }) {
     final title = switch ((isDownloading, isRestartReady)) {
-      (_, true) => 'Update Installed!',
-      (true, _) => 'Downloading Update...',
-      _ => 'New Update Available',
+      (_, true) => 'Update ready',
+      (true, _) => 'Downloading update…',
+      _ => 'Update available',
     };
 
     return Text(
@@ -192,12 +198,10 @@ class _ShorebirdUpdateDialogState extends State<ShorebirdUpdateDialog> {
     required bool isRestartReady,
   }) {
     final text = switch ((isDownloading, isRestartReady)) {
-      (_, true) =>
-        'The latest patch has been downloaded. Restart the app now to apply new features and improvements.',
-      (true, _) =>
-        'Downloading the latest improvements in the background. This will only take a moment.',
+      (_, true) => 'Restart the app to finish updating.',
+      (true, _) => 'Downloading the latest improvements.',
       _ =>
-        'A new update is available for Kitox Hardware with important bug fixes and performance improvements.',
+        'A new update is available for ${AppStrings.productName} with important bug fixes and performance improvements.',
     };
 
     return Text(
@@ -210,40 +214,6 @@ class _ShorebirdUpdateDialogState extends State<ShorebirdUpdateDialog> {
     );
   }
 
-  Widget _buildPatchInfoBadge() {
-    final currentPatch = widget.service.currentPatchNumber;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: AppColors.outlineVariant.withValues(alpha: 0.5),
-        ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(
-            Icons.info_outline_rounded,
-            size: 16,
-            color: AppColors.primary,
-          ),
-          const SizedBox(width: 8),
-          Text(
-            currentPatch != null
-                ? 'Current Version: Patch #$currentPatch'
-                : 'Current Version: Base Release',
-            style: AppTextStyles.labelSm.copyWith(
-              color: AppColors.onSurfaceVariant,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildActions({
     required bool isDownloading,
     required bool isRestartReady,
@@ -252,7 +222,7 @@ class _ShorebirdUpdateDialogState extends State<ShorebirdUpdateDialog> {
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 8),
         child: Text(
-          'Please do not close the app...',
+          'Keep the app open until this finishes.',
           style: AppTextStyles.bodySm,
         ),
       );
@@ -262,7 +232,7 @@ class _ShorebirdUpdateDialogState extends State<ShorebirdUpdateDialog> {
       return Column(
         children: [
           AppButton(
-            label: 'Restart Now',
+            label: 'Restart now',
             isFullWidth: true,
             leadingIcon: const Icon(Icons.restart_alt_rounded, size: 18),
             onPressed: () {
@@ -272,8 +242,8 @@ class _ShorebirdUpdateDialogState extends State<ShorebirdUpdateDialog> {
           ),
           const SizedBox(height: 10),
           AppButton(
-            label: 'Restart Later',
-            variant: AppButtonVariant.secondary,
+            label: 'Restart later',
+            variant: AppButtonVariant.outline,
             isFullWidth: true,
             onPressed: () => Get.back(),
           ),
@@ -284,7 +254,7 @@ class _ShorebirdUpdateDialogState extends State<ShorebirdUpdateDialog> {
     return Column(
       children: [
         AppButton(
-          label: 'Update Now',
+          label: 'Update now',
           isFullWidth: true,
           leadingIcon: const Icon(Icons.download_rounded, size: 18),
           onPressed: _startDownload,
@@ -292,7 +262,7 @@ class _ShorebirdUpdateDialogState extends State<ShorebirdUpdateDialog> {
         const SizedBox(height: 10),
         AppButton(
           label: 'Later',
-          variant: AppButtonVariant.secondary,
+          variant: AppButtonVariant.outline,
           isFullWidth: true,
           onPressed: () => Get.back(),
         ),

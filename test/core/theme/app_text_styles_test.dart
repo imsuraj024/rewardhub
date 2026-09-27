@@ -58,6 +58,32 @@ void main() {
     expect(AppTextStyles.labelSm.color, AppColors.onSurfaceVariant);
   });
 
+  testWidgets('positive: role tokens expose their design sizes and weights',
+      (tester) async {
+    expect(AppTextStyles.pointsHero.fontSize, 36);
+    expect(AppTextStyles.pointsHero.fontWeight, FontWeight.w800);
+    expect(AppTextStyles.pointsHero.color, AppColors.onPrimary);
+    expect(AppTextStyles.amount.fontSize, 14);
+    expect(AppTextStyles.amount.fontWeight, FontWeight.w700);
+    expect(
+      AppTextStyles.amount.fontFeatures,
+      contains(const FontFeature.tabularFigures()),
+    );
+    expect(AppTextStyles.sectionTitle.fontSize, 16);
+    expect(AppTextStyles.sectionTitle.fontWeight, FontWeight.w700);
+    expect(AppTextStyles.sheetTitle.fontSize, 20);
+    expect(AppTextStyles.sheetTitle.fontWeight, FontWeight.w700);
+    expect(AppTextStyles.listTitle.fontSize, AppTextStyles.titleSm.fontSize);
+    expect(AppTextStyles.appBarTitle.fontSize, 18);
+    expect(AppTextStyles.appBarTitle.fontWeight, FontWeight.w700);
+    expect(AppTextStyles.fieldLabel.fontSize, 14);
+    expect(AppTextStyles.fieldLabel.fontWeight, FontWeight.w600);
+    expect(AppTextStyles.fieldLabel.letterSpacing, 0.1);
+    expect(AppTextStyles.overline.fontSize, 12);
+    expect(AppTextStyles.overline.fontWeight, FontWeight.w700);
+    expect(AppTextStyles.overline.color, AppColors.onSurfaceVariant);
+  });
+
   testWidgets('edge: a style renders inside a Text widget without error',
       (tester) async {
     await tester.pumpWidget(

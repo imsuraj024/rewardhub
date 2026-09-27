@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'api_exception.dart';
+import 'error_messages.dart';
 
 class ErrorHandler {
   static ApiException handle(dynamic error) {
@@ -8,14 +9,12 @@ class ErrorHandler {
         case DioExceptionType.connectionTimeout:
         case DioExceptionType.sendTimeout:
         case DioExceptionType.receiveTimeout:
-          return NetworkException(
-            'Connection timeout. Please check your internet and try again.',
-          );
+          return NetworkException(ErrorMessages.timeout);
         case DioExceptionType.badResponse:
           final statusCode = error.response?.statusCode;
           final responseData = error.response?.data;
 
-          String message = 'Unexpected error occurred';
+          String message = ErrorMessages.generic;
           if (responseData != null && responseData is Map<String, dynamic>) {
             message =
                 responseData['message'] ?? responseData['error'] ?? message;
@@ -31,20 +30,20 @@ class ErrorHandler {
             return ApiException(message, statusCode);
           }
         case DioExceptionType.cancel:
-          return ApiException('Request was cancelled');
+          return ApiException(ErrorMessages.cancelled);
         case DioExceptionType.connectionError:
-          return NetworkException('No internet connection. Please check your connection and try again.');
+          return NetworkException(ErrorMessages.cannotConnect);
         case DioExceptionType.unknown:
           // Preserve NoInternetException thrown by ConnectivityInterceptor
           if (error.error is NoInternetException) {
             return error.error as NoInternetException;
           }
-          return NetworkException('No internet connection. Please check your connection and try again.');
+          return NetworkException(ErrorMessages.cannotConnect);
         case DioExceptionType.badCertificate:
-          return ApiException('Bad SSL certificate');
+          return ApiException(ErrorMessages.insecureConnection);
       }
     } else {
-      return ApiException('An unexpected error occurred.');
+      return ApiException(ErrorMessages.generic);
     }
   }
 }

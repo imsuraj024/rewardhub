@@ -130,5 +130,40 @@ void main() {
 
       verifyNever(() => store.save(any()));
     });
+
+    testWidgets('negative: terms not agreed shows the inline error, no toast',
+        (tester) async {
+      final toasts = installGetTestHarness();
+      final c = PersonalDetailsController(store, analytics.analytics);
+      await mountForm(tester, c);
+
+      await c.onNext();
+
+      expect(c.showTermsError.value, isTrue);
+      expect(toasts, isEmpty);
+      expect(analytics.names, contains('terms_not_accepted'));
+    });
+
+    testWidgets('positive: ticking the box hides the inline error',
+        (tester) async {
+      final c = PersonalDetailsController(store, analytics.analytics);
+      await mountForm(tester, c);
+      await c.onNext();
+      expect(c.showTermsError.value, isTrue);
+
+      c.setAgreedToTerms(true);
+
+      expect(c.showTermsError.value, isFalse);
+    });
+
+    testWidgets('edge: unticking does not bring the error back by itself',
+        (tester) async {
+      final c = PersonalDetailsController(store, analytics.analytics);
+
+      c.setAgreedToTerms(true);
+      c.setAgreedToTerms(false);
+
+      expect(c.showTermsError.value, isFalse);
+    });
   });
 }
