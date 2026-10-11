@@ -32,6 +32,7 @@ void main() {
       DioExceptionType.connectionTimeout,
       DioExceptionType.sendTimeout,
       DioExceptionType.receiveTimeout,
+      DioExceptionType.transformTimeout,
     ]) {
       test('positive: $type maps to NetworkException', () {
         final result = ErrorHandler.handle(dio(type));

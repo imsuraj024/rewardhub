@@ -9,6 +9,8 @@ class ErrorHandler {
         case DioExceptionType.connectionTimeout:
         case DioExceptionType.sendTimeout:
         case DioExceptionType.receiveTimeout:
+        // Decoding the response ran past its timeout (dio 5.11+).
+        case DioExceptionType.transformTimeout:
           return NetworkException(ErrorMessages.timeout);
         case DioExceptionType.badResponse:
           final statusCode = error.response?.statusCode;
