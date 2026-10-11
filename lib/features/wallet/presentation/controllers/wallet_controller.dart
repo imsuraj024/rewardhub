@@ -1,6 +1,7 @@
 import 'package:get/get.dart';
 
 import 'package:rewardhub/core/analytics/app_analytics.dart';
+import 'package:rewardhub/core/network/error_messages.dart';
 import 'package:rewardhub/core/utils/app_toast.dart';
 import 'package:rewardhub/core/utils/error_message.dart';
 import 'package:rewardhub/core/utils/logger.dart';
@@ -36,7 +37,7 @@ class WalletController extends GetxController {
     final token = _auth.token;
     if (token == null || token.isEmpty) {
       _analytics.redeemFailed('no_session');
-      AppToast.error('Session expired. Please log in again.');
+      AppToast.error(ErrorMessages.sessionExpired);
       return;
     }
 
@@ -50,7 +51,11 @@ class WalletController extends GetxController {
       if (Get.isRegistered<HomeController>()) {
         Get.find<HomeController>().loadActivities();
       }
-      AppToast.success(response.message ?? 'Your request has been raised.');
+      AppToast.success(
+        (response.message?.trim().isNotEmpty ?? false)
+            ? response.message!
+            : 'Redemption request sent.',
+      );
     } catch (e, st) {
       _analytics.redeemFailed(e);
       log('raiseRequest failed',

@@ -28,7 +28,11 @@ class QrScanRemoteDataSourceImpl implements QrScanRemoteDataSource {
     );
     final response = QrScanResponseModel.fromJson(data as Map<String, dynamic>);
     if (!response.success) {
-      throw ApiException(response.message ?? 'QR scan failed');
+      throw ApiException(
+        response.message ??
+            "We couldn't add points for this code. "
+                'It may already be used or not a Kitox code.',
+      );
     }
     return response;
   }

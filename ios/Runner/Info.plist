@@ -5,7 +5,7 @@
 		<key>CADisableMinimumFrameDurationOnPhone</key>
 		<true/>
 		<key>NSCameraUsageDescription</key>
-		<string>We need camera access so you can capture your Aadhaar card and selfie for identity verification.</string>
+		<string>Kitox Hardware uses your camera to scan QR codes and to take your Aadhaar and selfie photos when you register.</string>
 		<key>NSPhotoLibraryUsageDescription</key>
 		<string>We need photo library access so you can upload your Aadhaar card photo for identity verification.</string>
 		<key>CFBundleDevelopmentRegion</key>

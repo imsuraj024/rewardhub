@@ -41,6 +41,16 @@ class ShellController extends GetxController {
     _onTabShown(ShellTab.values[index]);
   }
 
+  /// System back on a tab other than Home returns to Home. It refreshes and
+  /// reports Home like any tab change but is not a tap, so no tab_selected
+  /// event is sent. Returns false when already on Home.
+  bool returnToHome() {
+    if (currentTab == ShellTab.home) return false;
+    currentIndex.value = ShellTab.home.index;
+    _onTabShown(ShellTab.home);
+    return true;
+  }
+
   @override
   void onReady() {
     super.onReady();

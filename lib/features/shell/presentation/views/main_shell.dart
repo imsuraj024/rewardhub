@@ -21,7 +21,7 @@ class MainShell extends GetView<ShellController> {
     _ShellDestination(
       page: HomeView(),
       icon: Icons.home_outlined,
-      selectedIcon: Icons.home,
+      selectedIcon: Icons.home_rounded,
       label: 'Home',
     ),
     _ShellDestination(
@@ -33,26 +33,26 @@ class MainShell extends GetView<ShellController> {
     _ShellDestination(
       page: QrScanView(),
       icon: Icons.qr_code_scanner_outlined,
-      selectedIcon: Icons.qr_code_scanner,
+      selectedIcon: Icons.qr_code_scanner_rounded,
       label: 'Scan',
     ),
     _ShellDestination(
       page: WalletView(),
       icon: Icons.account_balance_wallet_outlined,
-      selectedIcon: Icons.account_balance_wallet,
+      selectedIcon: Icons.account_balance_wallet_rounded,
       label: 'Wallet',
     ),
     _ShellDestination(
       page: ProfileView(),
-      icon: Icons.person_outline,
-      selectedIcon: Icons.person,
+      icon: Icons.person_outline_rounded,
+      selectedIcon: Icons.person_rounded,
       label: 'Profile',
     ),
   ];
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    final scaffold = Scaffold(
       body: Obx(
         () => IndexedStack(
           index: controller.currentIndex.value,
@@ -73,6 +73,19 @@ class MainShell extends GetView<ShellController> {
               ),
           ],
         ),
+      ),
+    );
+
+    // Back on any tab other than Home returns to Home; on Home it closes the
+    // app as before. The Obx encloses PopScope so canPop follows the tab, and
+    // the same scaffold is reused so no tab state is lost.
+    return Obx(
+      () => PopScope(
+        canPop: controller.currentIndex.value == ShellTab.home.index,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop) controller.returnToHome();
+        },
+        child: scaffold,
       ),
     );
   }

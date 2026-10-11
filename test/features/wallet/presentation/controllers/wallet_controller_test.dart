@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:rewardhub/core/network/api_exception.dart';
+import 'package:rewardhub/core/network/error_messages.dart';
+import 'package:rewardhub/core/utils/app_toast.dart';
 import 'package:rewardhub/features/auth/presentation/controllers/auth_controller.dart';
 import 'package:rewardhub/features/wallet/data/models/raise_request_response_model.dart';
 import 'package:rewardhub/features/wallet/domain/usecases/raise_wallet_request_usecase.dart';
@@ -20,10 +22,11 @@ void main() {
   late AnalyticsHarness analytics;
   late MockAuthController auth;
   late MockRaiseWalletRequestUseCase raise;
+  late List<RecordedToast> toasts;
 
   setUp(() {
     analytics = AnalyticsHarness();
-    installGetTestHarness();
+    toasts = installGetTestHarness();
     auth = MockAuthController();
     raise = MockRaiseWalletRequestUseCase();
   });
@@ -52,6 +55,21 @@ void main() {
 
       verify(() => raise.call('jwt')).called(1);
       expect(c.isSubmitting.value, isFalse);
+      expect(toasts.single.message, 'done');
+    });
+
+    test('edge: a blank server message falls back to the app copy', () async {
+      when(() => auth.token).thenReturn('jwt');
+      when(() => raise.call(any())).thenAnswer(
+        (_) async => const RaiseRequestResponseModel(
+          success: true,
+          message: '  ',
+        ),
+      );
+
+      await build().raiseRequest();
+
+      expect(toasts.single.message, 'Redemption request sent.');
     });
 
     test('positive: null message still succeeds (uses default text)',
@@ -66,6 +84,8 @@ void main() {
 
       verify(() => raise.call('jwt')).called(1);
       expect(c.isSubmitting.value, isFalse);
+      expect(toasts.single.type, ToastType.success);
+      expect(toasts.single.message, 'Redemption request sent.');
     });
 
     test('negative: null token short-circuits without calling usecase',
@@ -77,6 +97,8 @@ void main() {
 
       verifyNever(() => raise.call(any()));
       expect(c.isSubmitting.value, isFalse);
+      expect(toasts.single.type, ToastType.error);
+      expect(toasts.single.message, ErrorMessages.sessionExpired);
     });
 
     test('negative: empty token short-circuits without calling usecase',

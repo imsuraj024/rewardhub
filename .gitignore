@@ -5,7 +5,8 @@
 # Android release signing — NEVER commit these
 android/key.properties
 **/*.jks
-**/*.keystorebuild/
+**/*.keystore
+build/
 
 # Flutter/Dart
 .dart_tool/

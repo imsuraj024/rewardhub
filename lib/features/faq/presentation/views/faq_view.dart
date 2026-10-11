@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 
 import 'package:rewardhub/core/analytics/app_analytics.dart';
 import 'package:rewardhub/core/constants/app_strings.dart';
 import 'package:rewardhub/core/services/remote_config_service.dart';
 import 'package:rewardhub/core/theme/app_colors.dart';
+import 'package:rewardhub/core/theme/app_radius.dart';
+import 'package:rewardhub/core/theme/app_spacing.dart';
 import 'package:rewardhub/core/theme/app_text_styles.dart';
-import 'package:rewardhub/core/utils/app_toast.dart';
+import 'package:rewardhub/core/utils/external_links.dart';
+import 'package:rewardhub/core/widgets/app_icon_badge.dart';
+import 'package:rewardhub/core/widgets/app_state_message.dart';
 import 'package:rewardhub/core/widgets/app_top_bar.dart';
 
 /// A single question-and-answer entry.
@@ -15,6 +18,22 @@ class _FaqItem {
   const _FaqItem(this.question, this.answer);
   final String question;
   final String answer;
+}
+
+/// One row of the results list: a category header or a question.
+sealed class _FaqEntry {
+  const _FaqEntry();
+}
+
+/// Category title shown above its questions when the scope is "All".
+final class _FaqHeaderEntry extends _FaqEntry {
+  const _FaqHeaderEntry(this.title);
+  final String title;
+}
+
+final class _FaqItemEntry extends _FaqEntry {
+  const _FaqItemEntry(this.item);
+  final _FaqItem item;
 }
 
 /// A titled group of FAQ entries.
@@ -26,23 +45,22 @@ class _FaqCategory {
 
 /// All FAQ content, grouped by topic. Written in plain, user-friendly language.
 const List<_FaqCategory> _faqCategories = [
-  _FaqCategory('Getting Started', [
+  _FaqCategory('Getting started', [
     _FaqItem(
       'What is the ${AppStrings.productName} app?',
-      '${AppStrings.productName} is a loyalty and rewards program app. You earn '
-          'points every time you purchase genuine ${AppStrings.productName} products '
-          'or shop at partner stores, and you can turn those points into real cash '
-          'paid straight to your UPI or bank account.',
+      '${AppStrings.productName} is a rewards app. Scan the QR code on genuine '
+          '${AppStrings.productName} products to earn points. Then redeem your '
+          'points for money in your UPI or bank account.',
     ),
     _FaqItem(
       'How do I create an account?',
-      'Tap "Register" on the welcome screen and complete three simple steps:\n\n'
+      'On the login screen, tap Register and complete three simple steps:\n\n'
           '1. Enter your full name and mobile number.\n'
-          '2. Enter your preferred payout account — your UPI ID (Google Pay, '
-          'PhonePe, Paytm) or bank account details.\n'
+          '2. Enter your UPI ID or Google Pay number. You can also add a bank '
+          'account.\n'
           '3. Upload a photo of your Aadhaar card and a selfie for verification.\n\n'
           'Once submitted, your registration is reviewed by our team for approval. '
-          'After approval, you can log in and start earning rewards.',
+          'After approval, you can log in and start earning points.',
     ),
     _FaqItem(
       'Why do I need to submit Aadhaar and a selfie?',
@@ -62,12 +80,10 @@ const List<_FaqCategory> _faqCategories = [
           'If approval takes longer than expected, please reach out to support.',
     ),
   ]),
-  _FaqCategory('Earning Points', [
+  _FaqCategory('Earning points', [
     _FaqItem(
-      'How do I earn reward points?',
-      'On the home screen or bottom menu, tap "QR Scan" and point your camera at '
-          'the QR code printed on your ${AppStrings.productName} receipt or product '
-          'packaging. Points are credited to your balance instantly upon a successful scan.',
+      'How do I earn points?',
+      'Tap Scan in the bottom menu. Point your camera at the QR code.',
     ),
     _FaqItem(
       'Where do I find the QR code to scan?',
@@ -88,12 +104,12 @@ const List<_FaqCategory> _faqCategories = [
           'did not appear, contact support with the receipt details.',
     ),
   ]),
-  _FaqCategory('Redeeming Rewards', [
+  _FaqCategory('Redeeming points', [
     _FaqItem(
       'How do I redeem my accumulated points?',
-      'Tap the "Redeem" button on your Home screen. Enter the points you wish to '
-          'convert, and submit your request. The equivalent payout will be processed '
-          'directly to your saved payout method.',
+      'Tap Redeem on the Home screen, or Redeem points in Wallet. Check the '
+          'details, then tap Send request. The money goes to the UPI ID or bank '
+          'account you gave when you registered.',
     ),
     _FaqItem(
       'Where will my redemption money be sent?',
@@ -101,59 +117,59 @@ const List<_FaqCategory> _faqCategories = [
           'or bank account you provided during registration.',
     ),
     _FaqItem(
-      'How long does a reward payout take to process?',
-      'Redemption requests are verified promptly and payouts are initiated '
-          'shortly after review. You can check the status in your Recent Activity.',
+      'How do I check a redemption?',
+      'Redeemed points show in Wallet under Transaction history. If the money '
+          "hasn't reached your UPI ID or bank account, email support. The address "
+          'is at the top of this screen.',
     ),
     _FaqItem(
       'Can I update my UPI ID or bank account details?',
-      'To update your registered payout details securely, please contact our '
-          'support team using the email link below.',
+      'To change your UPI ID or bank account, email support. The address is at '
+          'the top of this screen.',
     ),
   ]),
-  _FaqCategory('Product Catalogue', [
+  _FaqCategory('Product catalogue', [
     _FaqItem(
-      'What is the Product Catalogue?',
+      'What is the product catalogue?',
       'The Catalogue tab gives you instant digital access to the complete range '
           'of ${AppStrings.productName} products, technical specifications, and hardware '
           'listings directly inside the app.',
     ),
     _FaqItem(
       'How do I search or jump to specific pages in the catalogue?',
-      'Use the "Go to Page" icon at the top of the Catalogue screen to type a page '
+      'Use the "Go to page" icon at the top of the Catalogue screen to type a page '
           'number directly. You can also swipe vertically to browse through pages.',
     ),
     _FaqItem(
       'Can I view the catalogue offline?',
       'Yes — once loaded, the catalogue document is saved locally on your device so '
           'you can view product details even without an active internet connection. '
-          'Tap the Refresh icon anytime to check for updated versions.',
+          'Tap the Reload icon anytime to check for updated versions.',
     ),
   ]),
-  _FaqCategory('Account & Security', [
+  _FaqCategory('Account & security', [
     _FaqItem(
-      'Where can I check my current balance and activity?',
-      'Your live points balance is displayed prominently on the Home and Profile '
-          'screens. You can view a breakdown of earned and redeemed points under '
-          'Recent Activity on the Home screen.',
+      'Where can I see my points and history?',
+      'Your points show on Home and in Wallet. Wallet › Transaction history '
+          'lists points earned and redeemed.',
     ),
     _FaqItem(
       'How do I log in to my account?',
-      'Enter your registered mobile number on the login screen. You will receive '
-          'a 6-digit OTP code via SMS — enter it to log in securely without needing a password.',
+      'Enter your registered mobile number on the login screen and tap Continue.',
     ),
     _FaqItem(
       'How do I safely log out of the app?',
-      'Go to the Profile tab, scroll down to the bottom, and tap "Logout Account".',
+      'Go to the Profile tab and tap Log out at the bottom of the screen.',
     ),
   ]),
 ];
 
-/// Static Help & Support / FAQ screen.
+/// Static Help & support / FAQ screen.
 ///
-/// Reached from the "Help & Support" row on the Profile page and the "Support"
-/// quick action on Home. A sticky header (support contact, search and category
-/// chips) sits above a scrolling list of expandable question cards.
+/// Reached from the "Help & support" row on the Profile page and the "Support"
+/// quick action on Home. The support contact card scrolls away; the search
+/// field and category chips stay pinned above a list of expandable question
+/// cards.
 class FaqView extends StatefulWidget {
   const FaqView({super.key});
 
@@ -165,7 +181,7 @@ class _FaqViewState extends State<FaqView> {
   final _searchController = TextEditingController();
   String _query = '';
 
-  /// 0..n map to [_faqCategories].
+  /// 0 = All; i ≥ 1 maps to `_faqCategories[i - 1]`.
   int _categoryIndex = 0;
 
   /// Question text of the currently expanded card, or null if all collapsed.
@@ -178,88 +194,143 @@ class _FaqViewState extends State<FaqView> {
     super.dispose();
   }
 
-  /// Questions matching the active category chip and search text.
-  List<_FaqItem> get _visibleItems {
-    final source = _faqCategories[_categoryIndex].items;
-
+  /// Rows matching the active chip and search text. "All" groups the matches
+  /// under their category headers and skips categories with no match.
+  List<_FaqEntry> get _entries {
     final q = _query.trim().toLowerCase();
-    if (q.isEmpty) return source.toList();
-    return source
-        .where(
-          (i) =>
-              i.question.toLowerCase().contains(q) ||
-              i.answer.toLowerCase().contains(q),
-        )
-        .toList();
+    bool matches(_FaqItem i) =>
+        q.isEmpty ||
+        i.question.toLowerCase().contains(q) ||
+        i.answer.toLowerCase().contains(q);
+
+    if (_categoryIndex > 0) {
+      return [
+        for (final i in _faqCategories[_categoryIndex - 1].items)
+          if (matches(i)) _FaqItemEntry(i),
+      ];
+    }
+
+    final entries = <_FaqEntry>[];
+    for (final c in _faqCategories) {
+      final items = c.items.where(matches).toList();
+      if (items.isEmpty) continue;
+      entries.add(_FaqHeaderEntry(c.title));
+      entries.addAll(items.map(_FaqItemEntry.new));
+    }
+    return entries;
+  }
+
+  Widget _buildEntry(List<_FaqEntry> entries, int index) {
+    return switch (entries[index]) {
+      _FaqHeaderEntry(:final title) => Padding(
+          padding: EdgeInsets.only(top: index == 0 ? 0 : AppSpacing.sm),
+          child: Semantics(
+            header: true,
+            child: Text(title, style: AppTextStyles.overline),
+          ),
+        ),
+      _FaqItemEntry(:final item) => _buildCard(item),
+    };
+  }
+
+  Widget _buildCard(_FaqItem item) {
+    final expanded = item.question == _openQuestion;
+    return _FaqCard(
+      key: ValueKey(item.question),
+      item: item,
+      expanded: expanded,
+      query: _query,
+      onTap: () {
+        // Only an open counts as engagement, not a collapse.
+        if (!expanded && Get.isRegistered<AppAnalytics>()) {
+          Get.find<AppAnalytics>().faqQuestionExpanded(item.question);
+        }
+        setState(() => _openQuestion = expanded ? null : item.question);
+      },
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final items = _visibleItems;
+    final entries = _entries;
 
     return Scaffold(
       backgroundColor: AppColors.surface,
-      appBar: const AppTopBar(title: 'Help & Support', showBackButton: true),
+      appBar: const AppTopBar(title: 'Help & support', showBackButton: true),
       body: SafeArea(
         top: false,
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-              child: Column(
-                children: [
-                  const _ContactSupportCard(),
-                  const SizedBox(height: 16),
-                  _SearchField(
-                    controller: _searchController,
-                    query: _query,
-                    onChanged: (v) => setState(() => _query = v),
-                    onClear: () {
-                      _searchController.clear();
-                      setState(() => _query = '');
-                    },
+        child: CustomScrollView(
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          slivers: [
+            const SliverPadding(
+              padding: EdgeInsets.fromLTRB(
+                AppSpacing.pageGutter,
+                AppSpacing.sm,
+                AppSpacing.pageGutter,
+                AppSpacing.lg,
+              ),
+              sliver: SliverToBoxAdapter(child: _ContactSupportCard()),
+            ),
+            // Sizes itself to its child, so it grows with the text scale.
+            PinnedHeaderSliver(
+              child: ColoredBox(
+                color: AppColors.surface,
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.pageGutter,
+                        ),
+                        child: _SearchField(
+                          controller: _searchController,
+                          query: _query,
+                          // Starting a search widens the scope to All, so no
+                          // chip claims a narrower scope than the results.
+                          onChanged: (v) => setState(() {
+                            if (_query.trim().isEmpty && v.trim().isNotEmpty) {
+                              _categoryIndex = 0;
+                            }
+                            _query = v;
+                          }),
+                          onClear: () {
+                            _searchController.clear();
+                            setState(() => _query = '');
+                          },
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      _CategoryChips(
+                        selectedIndex: _categoryIndex,
+                        onSelected: (i) => setState(() => _categoryIndex = i),
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
-            _CategoryChips(
-              selectedIndex: _categoryIndex,
-              onSelected: (i) => setState(() => _categoryIndex = i),
-            ),
-            const SizedBox(height: 4),
-            Expanded(
-              child: items.isEmpty
-                  ? const _EmptyResults()
-                  : ListView.separated(
-                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-                      itemCount: items.length,
-                      separatorBuilder: (context, index) =>
-                          const SizedBox(height: 12),
-                      itemBuilder: (_, i) {
-                        final item = items[i];
-                        final expanded = item.question == _openQuestion;
-                        return _FaqCard(
-                          key: ValueKey(item.question),
-                          item: item,
-                          expanded: expanded,
-                          query: _query,
-                          onTap: () {
-                            // Only an open counts as engagement, not a collapse.
-                            if (!expanded) {
-                              Get.find<AppAnalytics>().faqQuestionExpanded(
-                                item.question,
-                              );
-                            }
-                            setState(
-                              () => _openQuestion = expanded
-                                  ? null
-                                  : item.question,
-                            );
-                          },
-                        );
-                      },
-                    ),
-            ),
+            if (entries.isEmpty)
+              const SliverFillRemaining(
+                hasScrollBody: false,
+                child: _EmptyResults(),
+              )
+            else
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.pageGutter,
+                  AppSpacing.xs,
+                  AppSpacing.pageGutter,
+                  AppSpacing.xxl,
+                ),
+                sliver: SliverList.separated(
+                  itemCount: entries.length,
+                  itemBuilder: (_, i) => _buildEntry(entries, i),
+                  separatorBuilder: (_, __) =>
+                      const SizedBox(height: AppSpacing.md),
+                ),
+              ),
           ],
         ),
       ),
@@ -286,6 +357,7 @@ class _SearchField extends StatelessWidget {
     return TextField(
       controller: controller,
       onChanged: onChanged,
+      onSubmitted: (_) => FocusScope.of(context).unfocus(),
       style: AppTextStyles.bodyMd,
       textInputAction: TextInputAction.search,
       decoration: InputDecoration(
@@ -307,32 +379,20 @@ class _SearchField extends StatelessWidget {
                   color: AppColors.onSurfaceVariant,
                   size: 20,
                 ),
-                tooltip: 'Clear',
+                tooltip: 'Clear search',
                 onPressed: onClear,
               ),
+        // Borders come from the theme: the outline is what makes the white
+        // field visible on the surface background.
         filled: true,
         fillColor: AppColors.surfaceContainerLowest,
         contentPadding: const EdgeInsets.symmetric(vertical: 14),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide.none,
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide.none,
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide(
-            color: AppColors.primary.withValues(alpha: 0.4),
-          ),
-        ),
       ),
     );
   }
 }
 
-/// Horizontal, single-select category filter chips (one for each topic).
+/// Horizontal, single-select scope chips: "All", then one for each topic.
 class _CategoryChips extends StatelessWidget {
   const _CategoryChips({required this.selectedIndex, required this.onSelected});
 
@@ -341,46 +401,43 @@ class _CategoryChips extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final labels = [for (final c in _faqCategories) c.title];
+    final labels = ['All', for (final c in _faqCategories) c.title];
 
-    return SizedBox(
-      height: 40,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        itemCount: labels.length,
-        separatorBuilder: (context, index) => const SizedBox(width: 8),
-        itemBuilder: (_, i) {
-          final selected = i == selectedIndex;
-          return GestureDetector(
-            onTap: () => onSelected(i),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 180),
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: selected
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.pageGutter),
+      child: Row(
+        children: [
+          for (var i = 0; i < labels.length; i++) ...[
+            if (i > 0) const SizedBox(width: AppSpacing.sm),
+            ChoiceChip(
+              label: Text(labels[i]),
+              selected: i == selectedIndex,
+              onSelected: (_) => onSelected(i),
+              showCheckmark: false,
+              // 48 dp touch target.
+              materialTapTargetSize: MaterialTapTargetSize.padded,
+              shape: const StadiumBorder(),
+              side: BorderSide(
+                color: i == selectedIndex
                     ? AppColors.primary
-                    : AppColors.surfaceContainerLowest,
-                borderRadius: BorderRadius.circular(100),
-                border: Border.all(
-                  color: selected
-                      ? AppColors.primary
-                      : AppColors.outlineVariant.withValues(alpha: 0.4),
-                ),
+                    : AppColors.outline,
               ),
-              child: Text(
-                labels[i],
-                style: AppTextStyles.labelLg.copyWith(
-                  color: selected
-                      ? AppColors.onPrimary
-                      : AppColors.onSurfaceVariant,
-                  fontWeight: FontWeight.w600,
-                ),
+              backgroundColor: AppColors.surfaceContainerLowest,
+              selectedColor: AppColors.primary,
+              labelStyle: AppTextStyles.labelLg.copyWith(
+                fontWeight: FontWeight.w600,
+                color: i == selectedIndex
+                    ? AppColors.onPrimary
+                    : AppColors.onSurfaceVariant,
+              ),
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.sm,
+                vertical: AppSpacing.xs,
               ),
             ),
-          );
-        },
+          ],
+        ],
       ),
     );
   }
@@ -392,31 +449,15 @@ class _EmptyResults extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
+    return const Center(
       child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(
-              Icons.search_off_rounded,
-              size: 48,
-              color: AppColors.onSurfaceVariant,
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'No results found',
-              style: AppTextStyles.titleMd.copyWith(
-                color: AppColors.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Try a different search, or email support above.',
-              textAlign: TextAlign.center,
-              style: AppTextStyles.bodySm,
-            ),
-          ],
+        padding: EdgeInsets.all(AppSpacing.xxxl),
+        child: AppStateMessage(
+          icon: Icons.search_off_rounded,
+          tone: AppIconBadgeTone.neutral,
+          title: 'No results found',
+          message: 'Try another word, or email us at the top of this screen.',
+          boxed: false,
         ),
       ),
     );
@@ -583,7 +624,7 @@ class _HighlightedText extends StatelessWidget {
 /// Support email fallback when RemoteConfigService is unavailable.
 const String kSupportEmail = 'support@kitoxhardware.com';
 
-/// "Still need help?" card with a tap-to-copy support email.
+/// "Need help?" card: tap to email support, or copy the address.
 class _ContactSupportCard extends StatelessWidget {
   const _ContactSupportCard();
 
@@ -595,12 +636,24 @@ class _ContactSupportCard extends StatelessWidget {
     return kSupportEmail;
   }
 
+  Future<void> _emailSupport(String email) async {
+    final opened = await ExternalLinks.openOrCopy(
+      ExternalLinks.email(email),
+      fallbackText: email,
+      fallbackMessage: "Couldn't open your email app. Email address copied.",
+    );
+    // A copy is a proxy for problems the FAQ did not solve.
+    if (!opened && Get.isRegistered<AppAnalytics>()) {
+      Get.find<AppAnalytics>().supportEmailCopied();
+    }
+  }
+
   void _copyEmail(String email) {
-    if (email.isEmpty) return;
     // A proxy for problems the FAQ did not solve.
-    Get.find<AppAnalytics>().supportEmailCopied();
-    Clipboard.setData(ClipboardData(text: email));
-    AppToast.success('Support email copied to clipboard.');
+    if (Get.isRegistered<AppAnalytics>()) {
+      Get.find<AppAnalytics>().supportEmailCopied();
+    }
+    ExternalLinks.copy(email, message: 'Email address copied.');
   }
 
   @override
@@ -608,64 +661,85 @@ class _ContactSupportCard extends StatelessWidget {
     final email = _supportEmail;
 
     return Material(
-      color: Colors.transparent,
-      borderRadius: BorderRadius.circular(16),
-      clipBehavior: Clip.antiAlias,
+      type: MaterialType.transparency,
       child: Ink(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
           gradient: AppColors.primaryGradient,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(AppRadius.lg),
         ),
         child: Row(
           children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: AppColors.onPrimary.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Icon(
-                Icons.support_agent_rounded,
-                color: AppColors.onPrimary,
-                size: 22,
-              ),
-            ),
-            const SizedBox(width: 12),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Need help? Email support',
-                    style: AppTextStyles.bodySm.copyWith(
-                      color: AppColors.onPrimary.withValues(alpha: 0.85),
+              child: InkWell(
+                onTap: () => _emailSupport(email),
+                borderRadius: BorderRadius.circular(AppRadius.lg),
+                child: Semantics(
+                  button: true,
+                  label: 'Email support, $email',
+                  excludeSemantics: true,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                      AppSpacing.lg,
+                      AppSpacing.md,
+                      AppSpacing.sm,
+                      AppSpacing.md,
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: AppColors.onPrimary.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(AppRadius.md),
+                          ),
+                          child: const Icon(
+                            Icons.support_agent_rounded,
+                            color: AppColors.onPrimary,
+                            size: 22,
+                          ),
+                        ),
+                        const SizedBox(width: AppSpacing.md),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                'Need help? Email us',
+                                style: AppTextStyles.bodySm.copyWith(
+                                  color: AppColors.onPrimary,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                email,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: AppTextStyles.bodyMd.copyWith(
+                                  color: AppColors.onPrimary,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    email,
-                    style: AppTextStyles.bodyMd.copyWith(
-                      color: AppColors.onPrimary,
-                      fontWeight: FontWeight.w700,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
+                ),
               ),
             ),
-            const SizedBox(width: 8),
-            GestureDetector(
-              onTap: () => _copyEmail(email),
-              child: Icon(
+            IconButton(
+              onPressed: () => _copyEmail(email),
+              tooltip: 'Copy support email',
+              icon: const Icon(
                 Icons.copy_rounded,
-                color: AppColors.onPrimary.withValues(alpha: 0.9),
-                size: 18,
+                color: AppColors.onPrimary,
+                size: 20,
               ),
             ),
+            const SizedBox(width: AppSpacing.xs),
           ],
         ),
       ),

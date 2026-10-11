@@ -86,7 +86,10 @@ void main() {
         ),
       ),
     );
-    when(() => profileController.loadProfile()).thenAnswer((_) async {});
+    when(() => profileController.loadProfile(force: any(named: 'force')))
+        .thenAnswer((_) async {});
+    when(() => walletController.raiseRequest()).thenAnswer((_) async {});
+    when(() => analytics.quickActionTapped(any())).thenAnswer((_) async {});
     when(() => remoteConfig.promotionalBanners).thenReturn([]);
 
     Get.put<ProfileController>(profileController);
@@ -105,15 +108,62 @@ void main() {
     await pumpApp(tester, const HomeView());
     await tester.pumpAndSettle();
 
-    expect(find.text('YOUR REWARD BALANCE'), findsOneWidget);
+    expect(find.text('Your points'), findsOneWidget);
+    expect(
+      find.text('No points in the last 7 days. Scan a QR code to earn.'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('600'), findsNothing);
+    expect(find.text('Get money for points'), findsOneWidget);
 
-    final target = find.text('HOW TO EARN POINTS');
+    final target = find.text('How to earn points');
     await tester.scrollUntilVisible(target, 500, scrollable: find.byType(Scrollable));
     await tester.pumpAndSettle();
 
     expect(target, findsOneWidget);
-    expect(find.text('Find Kitox QR'), findsOneWidget);
-    expect(find.text('Scan in App'), findsOneWidget);
-    expect(find.text('Claim Reward'), findsOneWidget);
+    expect(find.text('Find the QR code'), findsOneWidget);
+    expect(find.text('Scan it'), findsOneWidget);
+    expect(find.text('Get points'), findsOneWidget);
+  });
+
+  group('redeem quick action', () {
+    Future<void> tapRedeem(WidgetTester tester) async {
+      await pumpApp(tester, const HomeView());
+      await tester.pumpAndSettle();
+      final redeem = find.text('Redeem');
+      await tester.scrollUntilVisible(
+        redeem,
+        200,
+        scrollable: find.byType(Scrollable),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(redeem);
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('negative: Cancel closes the sheet and sends nothing',
+        (tester) async {
+      await tapRedeem(tester);
+
+      expect(find.text('Redeem your points?'), findsOneWidget);
+      verify(() => analytics.quickActionTapped('redeem')).called(1);
+
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Redeem your points?'), findsNothing);
+      verifyNever(() => walletController.raiseRequest());
+    });
+
+    testWidgets('positive: Send request raises the request once',
+        (tester) async {
+      await tapRedeem(tester);
+
+      await tester.tap(find.text('Send request'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Redeem your points?'), findsNothing);
+      verify(() => walletController.raiseRequest()).called(1);
+    });
   });
 }

@@ -1,23 +1,32 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import 'package:rewardhub/core/analytics/app_analytics.dart';
-import 'package:rewardhub/core/utils/app_toast.dart';
+import 'package:rewardhub/core/utils/app_format.dart';
 import 'package:rewardhub/core/utils/error_message.dart';
 import 'package:rewardhub/core/utils/logger.dart';
 import 'package:rewardhub/features/auth/presentation/controllers/auth_controller.dart';
 import 'package:rewardhub/features/home/presentation/controllers/home_controller.dart';
 import 'package:rewardhub/features/profile/presentation/controllers/profile_controller.dart';
 import 'package:rewardhub/features/qr_scan/domain/usecases/submit_qr_scan_usecase.dart';
+import 'package:rewardhub/features/qr_scan/presentation/widgets/scan_result_sheet.dart';
 import 'package:rewardhub/features/shell/presentation/controllers/shell_controller.dart';
 
-/// Surfaces the outcome of a submitted scan to the user.
+/// Surfaces the outcome of a submitted scan to the user. The scanner restarts
+/// only once the returned future completes (the result was dismissed).
 ///
-/// Injectable so tests can capture outcomes without a live toast overlay.
-typedef ScanResultPresenter =
-    void Function({required bool success, required String message});
+/// Injectable so tests can capture outcomes without a live overlay.
+typedef ScanResultPresenter = FutureOr<void> Function(
+    {required bool success, required String message});
+
+/// Reads or requests the camera permission.
+///
+/// Injectable so tests never touch the permission platform channel.
+typedef CameraPermissionReader = Future<PermissionStatus> Function();
 
 /// Drives the QR scanner: camera permission, the scanner lifecycle (tied to the
 /// active shell tab and the app lifecycle), and submitting scanned codes.
@@ -27,6 +36,9 @@ typedef ScanResultPresenter =
 /// serialized and guarded with [MobileScannerController.value.isRunning] so
 /// overlapping tab/lifecycle events can never leave the camera in a bad state
 /// (the cause of the "camera stops working" intermittent freeze).
+///
+/// The OS camera prompt appears only from [requestCameraPermission], which the
+/// Scan tab's "Allow camera" button calls after an in-app explanation.
 class QrScanController extends GetxController with WidgetsBindingObserver {
   QrScanController({
     required SubmitQrScanUseCase submitQrScan,
@@ -34,11 +46,17 @@ class QrScanController extends GetxController with WidgetsBindingObserver {
     required ShellController shellController,
     required AppAnalytics analytics,
     ScanResultPresenter? presentResult,
-  }) : _submitQrScan = submitQrScan,
-       _auth = authController,
-       _shell = shellController,
-       _analytics = analytics,
-       _presentResult = presentResult;
+    CameraPermissionReader? readCameraStatus,
+    CameraPermissionReader? requestCameraAccess,
+  })  : _submitQrScan = submitQrScan,
+        _auth = authController,
+        _shell = shellController,
+        _analytics = analytics,
+        _presentResult = presentResult,
+        _readCameraStatus =
+            readCameraStatus ?? (() => Permission.camera.status),
+        _requestCameraAccess =
+            requestCameraAccess ?? (() => Permission.camera.request());
 
   final SubmitQrScanUseCase _submitQrScan;
   final AuthController _auth;
@@ -47,10 +65,16 @@ class QrScanController extends GetxController with WidgetsBindingObserver {
 
   /// Overrides how a scan outcome is surfaced.
   ///
-  /// The default is an [AppToast], which requires a live overlay — something
-  /// a pure-Dart controller test does not have. Tests pass a recorder here
-  /// instead of having to pump a whole app. `null` in production.
+  /// The default is a [ScanResultSheet], which requires a live navigator —
+  /// something a pure-Dart controller test does not have. Tests pass a
+  /// recorder here instead of having to pump a whole app. `null` in production.
   final ScanResultPresenter? _presentResult;
+
+  /// Reads the permission without prompting.
+  final CameraPermissionReader _readCameraStatus;
+
+  /// Shows the OS permission prompt.
+  final CameraPermissionReader _requestCameraAccess;
 
   /// Index of the QR tab inside [ShellController].
   static int get qrTabIndex => ShellTab.qrScan.index;
@@ -69,23 +93,36 @@ class QrScanController extends GetxController with WidgetsBindingObserver {
   bool _scanned = false;
   Worker? _tabWorker;
 
+  /// The OS permission dialog is showing (it pauses and resumes the app).
+  bool _requestInFlight = false;
+
+  /// A scan result is on screen; the scanner stays off until it's dismissed.
+  bool _resultOpen = false;
+
   /// Serializes scanner start/stop calls so they never overlap.
   Future<void> _scannerOp = Future<void>.value();
 
   bool get _isOnQrTab => _shell.currentIndex.value == qrTabIndex;
 
+  /// The camera may run: permission granted, the Scan tab showing, and no
+  /// scan being checked or shown.
+  bool get _canScan =>
+      cameraStatus.value.isGranted &&
+      _isOnQrTab &&
+      !_resultOpen &&
+      !isSubmitting.value;
+
   @override
   void onInit() {
     super.onInit();
     WidgetsBinding.instance.addObserver(this);
-    requestCameraPermission();
+    // A silent read: the OS prompt never appears outside the Scan tab.
+    refreshCameraStatus();
 
     // Scan only while the QR tab is active.
     _tabWorker = ever<int>(_shell.currentIndex, (index) {
-      if (!cameraStatus.value.isGranted) return;
       if (index == qrTabIndex) {
-        _scanned = false;
-        _startScanner();
+        _syncScanner();
       } else {
         _stopScanner();
       }
@@ -94,11 +131,12 @@ class QrScanController extends GetxController with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (!cameraStatus.value.isGranted || !_isOnQrTab) return;
     if (state == AppLifecycleState.resumed) {
-      _scanned = false;
-      _startScanner();
-    } else if (state == AppLifecycleState.inactive ||
+      // Picks up a permission changed in Settings while the app was away.
+      _syncScanner();
+      return;
+    }
+    if (state == AppLifecycleState.inactive ||
         state == AppLifecycleState.paused) {
       _stopScanner();
     }
@@ -112,13 +150,46 @@ class QrScanController extends GetxController with WidgetsBindingObserver {
     super.onClose();
   }
 
+  /// Reads the permission without prompting. Called at init, when the Scan
+  /// tab is shown, and on every resume.
+  Future<void> refreshCameraStatus() async {
+    // The OS dialog itself pauses and resumes the app; let the request's
+    // own result win.
+    if (_requestInFlight) return;
+    try {
+      cameraStatus.value = await _readCameraStatus();
+    } catch (e, st) {
+      log(
+        'camera status read failed',
+        name: 'rewardhub.qrscan',
+        error: e,
+        stackTrace: st,
+      );
+    }
+  }
+
+  /// Shows the OS camera prompt. The only caller is the "Allow camera" button.
   Future<void> requestCameraPermission() async {
-    cameraStatus.value = await Permission.camera.request();
-    // The gate on the entire scanning feature — worth measuring on its own.
+    if (_requestInFlight) return;
+    _requestInFlight = true;
+    try {
+      cameraStatus.value = await _requestCameraAccess();
+    } catch (e, st) {
+      log(
+        'camera request failed',
+        name: 'rewardhub.qrscan',
+        error: e,
+        stackTrace: st,
+      );
+      return;
+    } finally {
+      _requestInFlight = false;
+    }
+    // The gate on the entire scanning feature — measured for real requests
+    // only, never for passive reads.
     _analytics.cameraPermissionResult(granted: cameraStatus.value.isGranted);
-    // If permission is granted while the QR tab is already showing, the tab
-    // worker won't fire again — start the scanner here.
-    if (cameraStatus.value.isGranted && _isOnQrTab) {
+    // Granted while the Scan tab is showing: start without leaving the tab.
+    if (_canScan) {
       _scanned = false;
       _startScanner();
     }
@@ -136,9 +207,19 @@ class QrScanController extends GetxController with WidgetsBindingObserver {
     _submit(barcode.rawValue!);
   }
 
+  /// Re-arms detection and restarts the camera when it may run.
   void rescan() {
     _scanned = false;
-    _startScanner();
+    if (_canScan) _startScanner();
+  }
+
+  /// Re-reads the permission, then starts the camera if it may run.
+  Future<void> _syncScanner() async {
+    await refreshCameraStatus();
+    if (_canScan) {
+      _scanned = false;
+      _startScanner();
+    }
   }
 
   // ── Scanner control (serialized + guarded) ────────────────────────────────
@@ -176,14 +257,17 @@ class QrScanController extends GetxController with WidgetsBindingObserver {
     final token = _auth.token;
     if (token == null) {
       _analytics.qrScanFailed('no_session');
-      _showResult(
+      await _showResult(
         success: false,
-        message: 'Session expired. Please log in again.',
+        message: "You've been logged out, so this scan wasn't saved. "
+            'Log in and scan again.',
       );
       return;
     }
 
     isSubmitting.value = true;
+    var success = false;
+    var message = '';
     try {
       final response = await _submitQrScan(
         SubmitQrScanParams(qrData: qrData, token: token),
@@ -202,30 +286,48 @@ class QrScanController extends GetxController with WidgetsBindingObserver {
         Get.find<HomeController>().loadActivities();
       }
 
-      _showResult(
-        success: true,
-        message: response.pointsEarned != null
-            ? 'You earned ${response.pointsEarned} pts!'
-            : response.message ?? 'Points added successfully!',
-      );
+      final earned = response.pointsEarned;
+      final serverMessage = response.message?.trim() ?? '';
+      success = true;
+      message = (earned != null && earned > 0)
+          ? 'You earned ${AppFormat.pointsWithUnit(earned)}.'
+          : (serverMessage.isNotEmpty
+              ? response.message!
+              : 'Check Wallet to see your points.');
     } catch (e) {
       _analytics.qrScanFailed(e);
-      _showResult(success: false, message: resolveErrorMessage(e));
+      message = resolveErrorMessage(e);
     } finally {
+      // Close the "Checking code…" overlay before the result appears.
       isSubmitting.value = false;
     }
+
+    await _showResult(success: success, message: message);
   }
 
-  void _showResult({required bool success, required String message}) {
-    final presentWith = _presentResult;
-    if (presentWith != null) {
-      presentWith(success: success, message: message);
-    } else {
-      if (success) {
-        AppToast.success(message);
+  /// Shows the outcome and restarts scanning only after it's dismissed.
+  Future<void> _showResult({
+    required bool success,
+    required String message,
+  }) async {
+    // Blocks resume, tab and rescan restarts while the result is open.
+    _resultOpen = true;
+    try {
+      final presentWith = _presentResult;
+      if (presentWith != null) {
+        await presentWith(success: success, message: message);
       } else {
-        AppToast.error(message);
+        final context = Get.context;
+        if (context != null) {
+          await ScanResultSheet.show(
+            context,
+            success: success,
+            message: message,
+          );
+        }
       }
+    } finally {
+      _resultOpen = false;
     }
 
     rescan();

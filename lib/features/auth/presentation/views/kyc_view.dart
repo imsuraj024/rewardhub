@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
 
+import 'package:rewardhub/core/analytics/app_analytics.dart';
 import 'package:rewardhub/core/theme/app_colors.dart';
 import 'package:rewardhub/core/theme/app_radius.dart';
 import 'package:rewardhub/core/theme/app_spacing.dart';
@@ -58,7 +59,7 @@ class KycView extends GetView<KycController> {
                 label: 'Take a selfie',
                 hint: 'Face clearly visible, good lighting',
                 path: controller.selfiePath.value,
-                onTap: controller.pickSelfie,
+                onTap: () => _takePhoto(context, KycDocument.selfie),
               ),
             ),
             const SizedBox(height: 28),
@@ -98,7 +99,7 @@ class KycView extends GetView<KycController> {
               title: const Text('Take a photo'),
               onTap: () {
                 Navigator.of(sheetContext).pop();
-                controller.pickAadhaar(ImageSource.camera);
+                _takePhoto(context, KycDocument.aadhaar);
               },
             ),
             ListTile(
@@ -114,6 +115,58 @@ class KycView extends GetView<KycController> {
         ),
       ),
     );
+  }
+
+  /// Camera capture for one document: the rationale or "Camera is off"
+  /// sheet when needed, then the picker (DS-26). Uses the view's context,
+  /// never a closed sheet's context.
+  Future<void> _takePhoto(BuildContext context, KycDocument document) async {
+    final access = await controller.cameraAccess();
+    if (!context.mounted) return;
+    if (access == KycCameraAccess.blocked) {
+      await _showCameraOff(context, document);
+      return;
+    }
+    if (access == KycCameraAccess.explain) {
+      final go = await AppBottomSheet.confirm(
+        context: context,
+        icon: Icons.photo_camera_rounded,
+        title: 'Allow camera to take a photo',
+        message: document == KycDocument.aadhaar
+            ? 'We need your camera to take a photo of your Aadhaar card. '
+                'Your phone may ask you to allow this.'
+            : 'We need your camera to take your selfie. '
+                'Your phone may ask you to allow this.',
+        confirmLabel: 'Continue',
+        cancelLabel: 'Not now',
+      );
+      if (!go || !context.mounted) return;
+      controller.cameraExplained();
+    }
+    final result = document == KycDocument.aadhaar
+        ? await controller.pickAadhaar(ImageSource.camera)
+        : await controller.pickSelfie();
+    if (result == KycPickResult.cameraBlocked && context.mounted) {
+      await _showCameraOff(context, document);
+    }
+  }
+
+  Future<void> _showCameraOff(
+    BuildContext context,
+    KycDocument document,
+  ) async {
+    final open = await AppBottomSheet.confirm(
+      context: context,
+      icon: Icons.no_photography_rounded,
+      title: 'Camera is off',
+      message: document == KycDocument.aadhaar
+          ? 'Tap Open settings, then turn on Camera. '
+              'You can also choose a photo from your gallery.'
+          : 'Tap Open settings, then turn on Camera.',
+      confirmLabel: 'Open settings',
+      cancelLabel: 'Not now',
+    );
+    if (open) await controller.openSettings();
   }
 }
 

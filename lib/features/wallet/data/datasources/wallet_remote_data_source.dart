@@ -23,7 +23,10 @@ class WalletRemoteDataSourceImpl implements WalletRemoteDataSource {
     final response =
         RaiseRequestResponseModel.fromJson(data as Map<String, dynamic>);
     if (!response.success) {
-      throw ApiException(response.message ?? 'Could not raise your request.');
+      throw ApiException(
+        response.message ??
+            "Couldn't send your redemption request. Please try again.",
+      );
     }
     return response;
   }

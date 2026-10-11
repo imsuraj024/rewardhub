@@ -144,6 +144,41 @@ void main() {
     });
   });
 
+  group('returnToHome', () {
+    test('positive: from another tab it shows and refreshes Home', () {
+      final profile = _SpyProfileController();
+      final home = _SpyHomeController();
+      Get.put<ProfileController>(profile);
+      Get.put<HomeController>(home);
+      final c = ShellController(analytics.analytics);
+      c.currentIndex.value = ShellTab.profile.index;
+
+      expect(c.returnToHome(), isTrue);
+
+      expect(c.currentTab, ShellTab.home);
+      expect(profile.loadProfileCalls, 1);
+      expect(home.loadActivitiesCalls, 1);
+      // Back is not a tap: a screen view, but no tab_selected.
+      expect(analytics.names, ['screen_view']);
+      expect(
+        analytics.call('screen_view')!.parameters['screen_name'],
+        'shell_home',
+      );
+    });
+
+    test('negative: on Home it does nothing, so back can exit', () {
+      final profile = _SpyProfileController();
+      Get.put<ProfileController>(profile);
+      final c = ShellController(analytics.analytics);
+
+      expect(c.returnToHome(), isFalse);
+
+      expect(c.currentTab, ShellTab.home);
+      expect(profile.loadProfileCalls, 0);
+      expect(analytics.names, isEmpty);
+    });
+  });
+
   group('onReady', () {
     test('positive: refreshes the initial (home) tab', () {
       final profile = _SpyProfileController();

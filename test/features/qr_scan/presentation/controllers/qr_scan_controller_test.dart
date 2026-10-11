@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:get/get.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -29,6 +32,10 @@ void main() {
   late MockSubmitQrScanUseCase submit;
   late ShellController shell;
   late List<({bool success, String message})> results;
+  late PermissionStatus readStatus;
+  late int readCalls;
+  late int requestCalls;
+  late Future<PermissionStatus> Function() onRequest;
 
   setUpAll(() {
     registerFallbackValue(
@@ -43,21 +50,36 @@ void main() {
     submit = MockSubmitQrScanUseCase();
     shell = ShellController(analytics.analytics);
     results = [];
+    readStatus = PermissionStatus.denied;
+    readCalls = 0;
+    requestCalls = 0;
+    onRequest = () async => PermissionStatus.granted;
   });
 
   tearDown(resetGet);
 
-  // Built WITHOUT onInit so the camera-permission platform channel and the
-  // WidgetsBinding observer are never touched (see gap notes in report).
-  // presentResult captures outcomes: the real one is a GetX snackbar, which
-  // needs an overlay these pure-Dart tests do not have.
-  QrScanController build() => QrScanController(
+  // Built WITHOUT onInit so the WidgetsBinding observer is never touched
+  // (the lifecycle group registers one through Get.put where it needs it).
+  // The permission readers are fakes, so the platform channel is never hit.
+  // presentResult captures outcomes: the real one is a bottom sheet, which
+  // needs a navigator these pure-Dart tests do not have.
+  QrScanController build({ScanResultPresenter? presentResult}) =>
+      QrScanController(
         submitQrScan: submit,
         authController: auth,
         shellController: shell,
         analytics: analytics.analytics,
-        presentResult: ({required bool success, required String message}) =>
-            results.add((success: success, message: message)),
+        presentResult: presentResult ??
+            ({required bool success, required String message}) =>
+                results.add((success: success, message: message)),
+        readCameraStatus: () async {
+          readCalls++;
+          return readStatus;
+        },
+        requestCameraAccess: () {
+          requestCalls++;
+          return onRequest();
+        },
       );
 
   group('onDetect', () {
@@ -78,7 +100,7 @@ void main() {
       expect(params.token, 'jwt');
       expect(c.isSubmitting.value, isFalse);
       expect(results.single.success, isTrue);
-      expect(results.single.message, 'You earned 25 pts!');
+      expect(results.single.message, 'You earned 25 points.');
     });
 
     test('positive: response without points still submits/succeeds', () async {
@@ -91,6 +113,7 @@ void main() {
       c.onDetect(_capture('QR'));
       await _settle();
       expect(results.single.success, isTrue);
+      expect(results.single.message, 'ok');
 
       verify(() => submit.call(any())).called(1);
       expect(c.isSubmitting.value, isFalse);
@@ -104,6 +127,20 @@ void main() {
       await _settle();
 
       verifyNever(() => submit.call(any()));
+      expect(results.single.success, isFalse);
+      expect(results.single.message, contains('logged out'));
+    });
+
+    test('edge: no points and no server message points to Wallet', () async {
+      when(() => auth.token).thenReturn('jwt');
+      when(() => submit.call(any())).thenAnswer(
+        (_) async => QrScanResponseModel(success: true, message: '  '),
+      );
+
+      build().onDetect(_capture('QR'));
+      await _settle();
+
+      expect(results.single.message, 'Check Wallet to see your points.');
     });
 
     test('negative: submit failure is handled and resets submitting',
@@ -166,6 +203,49 @@ void main() {
       // Auto-rescan on result re-arms detection so both codes are processed.
       verify(() => submit.call(any())).called(2);
     });
+
+    test('edge: codes are ignored until the result is dismissed', () async {
+      when(() => auth.token).thenReturn('jwt');
+      when(() => submit.call(any())).thenAnswer(
+        (_) async => QrScanResponseModel(success: true, pointsEarned: 5),
+      );
+      final dismissed = Completer<void>();
+      final c = build(
+        presentResult: ({required bool success, required String message}) =>
+            dismissed.future,
+      );
+
+      c.onDetect(_capture('FIRST'));
+      await _settle();
+      c.onDetect(_capture('STILL-IN-FRAME'));
+      await _settle();
+      verify(() => submit.call(any())).called(1);
+
+      dismissed.complete();
+      await _settle();
+      c.onDetect(_capture('NEXT'));
+      await _settle();
+      verify(() => submit.call(any())).called(1);
+    });
+
+    test('positive: the overlay is closed before the result shows', () async {
+      when(() => auth.token).thenReturn('jwt');
+      when(() => submit.call(any())).thenAnswer(
+        (_) async => QrScanResponseModel(success: true, pointsEarned: 5),
+      );
+      bool? submittingWhenShown;
+      late final QrScanController c;
+      c = build(
+        presentResult: ({required bool success, required String message}) {
+          submittingWhenShown = c.isSubmitting.value;
+        },
+      );
+
+      c.onDetect(_capture('QR'));
+      await _settle();
+
+      expect(submittingWhenShown, isFalse);
+    });
   });
 
   group('rescan', () {
@@ -214,6 +294,157 @@ void main() {
         () => c.didChangeAppLifecycleState(AppLifecycleState.inactive),
         returnsNormally,
       );
+    });
+  });
+
+  group('result sheet (no injected presenter)', () {
+    testWidgets('positive: the sheet shows after the overlay, rescan on close',
+        (tester) async {
+      when(() => auth.token).thenReturn('jwt');
+      when(() => submit.call(any())).thenAnswer(
+        (_) async => QrScanResponseModel(success: true, pointsEarned: 25),
+      );
+      final c = Get.put<QrScanController>(
+        QrScanController(
+          submitQrScan: submit,
+          authController: auth,
+          shellController: shell,
+          analytics: analytics.analytics,
+          readCameraStatus: () async => PermissionStatus.denied,
+          requestCameraAccess: () async => PermissionStatus.denied,
+        ),
+      );
+      await pumpApp(tester, const SizedBox.shrink());
+
+      c.onDetect(_capture('QR'));
+      await tester.pumpAndSettle();
+
+      expect(c.isSubmitting.value, isFalse);
+      expect(find.text('Points added'), findsOneWidget);
+      expect(find.text('You earned 25 points.'), findsOneWidget);
+
+      // Still open: a code in frame is not submitted again.
+      c.onDetect(_capture('QR'));
+      await tester.pumpAndSettle();
+      verify(() => submit.call(any())).called(1);
+
+      await tester.tap(find.text('Scan another code'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Points added'), findsNothing);
+      c.onDetect(_capture('NEXT'));
+      await tester.pumpAndSettle();
+      verify(() => submit.call(any())).called(1);
+    });
+  });
+
+  group('camera permission', () {
+    test('positive: onInit reads the permission and never prompts', () async {
+      Get.put<QrScanController>(build());
+      await _settle();
+
+      expect(readCalls, 1);
+      expect(requestCalls, 0);
+    });
+
+    test('positive: showing the Scan tab re-reads, never prompts', () async {
+      final c = Get.put<QrScanController>(build());
+      await _settle();
+      readStatus = PermissionStatus.granted;
+
+      shell.currentIndex.value = QrScanController.qrTabIndex;
+      await _settle();
+
+      expect(c.cameraStatus.value, PermissionStatus.granted);
+      expect(readCalls, 2);
+      expect(requestCalls, 0);
+    });
+
+    test('positive: resume re-reads the status (Settings round trip)',
+        () async {
+      final c = build();
+
+      c.didChangeAppLifecycleState(AppLifecycleState.resumed);
+      await _settle();
+      expect(c.cameraStatus.value, PermissionStatus.denied);
+
+      readStatus = PermissionStatus.granted;
+      c.didChangeAppLifecycleState(AppLifecycleState.resumed);
+      await _settle();
+
+      expect(c.cameraStatus.value, PermissionStatus.granted);
+      expect(requestCalls, 0);
+    });
+
+    test('positive: "Allow camera" prompts once and records the answer',
+        () async {
+      onRequest = () async => PermissionStatus.permanentlyDenied;
+      final c = build();
+
+      await c.requestCameraPermission();
+
+      expect(requestCalls, 1);
+      expect(c.cameraStatus.value, PermissionStatus.permanentlyDenied);
+      expect(analytics.names, ['camera_permission_result']);
+      expect(analytics.call('camera_permission_result')!.parameters['granted'],
+          isFalse);
+    });
+
+    test('negative: passive reads never record a permission result', () async {
+      final c = build();
+
+      await c.refreshCameraStatus();
+      c.didChangeAppLifecycleState(AppLifecycleState.resumed);
+      await _settle();
+
+      expect(analytics.names, isEmpty);
+    });
+
+    test('edge: a resume during the OS prompt keeps the prompt\'s answer',
+        () async {
+      final answer = Completer<PermissionStatus>();
+      onRequest = () => answer.future;
+      final c = build();
+
+      final pending = c.requestCameraPermission();
+      c.didChangeAppLifecycleState(AppLifecycleState.resumed);
+      await _settle();
+      answer.complete(PermissionStatus.granted);
+      await pending;
+      await _settle();
+
+      expect(c.cameraStatus.value, PermissionStatus.granted);
+      expect(readCalls, 0);
+    });
+
+    test('edge: a second tap while the prompt is open is ignored', () async {
+      final answer = Completer<PermissionStatus>();
+      onRequest = () => answer.future;
+      final c = build();
+
+      final first = c.requestCameraPermission();
+      await c.requestCameraPermission();
+      answer.complete(PermissionStatus.denied);
+      await first;
+
+      expect(requestCalls, 1);
+      expect(analytics.names, ['camera_permission_result']);
+    });
+
+    test('negative: a failed read keeps the last known status', () async {
+      final c = QrScanController(
+        submitQrScan: submit,
+        authController: auth,
+        shellController: shell,
+        analytics: analytics.analytics,
+        presentResult: ({required bool success, required String message}) {},
+        readCameraStatus: () async => throw Exception('channel down'),
+        requestCameraAccess: () async => PermissionStatus.granted,
+      );
+
+      await c.refreshCameraStatus();
+
+      expect(c.cameraStatus.value, PermissionStatus.denied);
     });
   });
 

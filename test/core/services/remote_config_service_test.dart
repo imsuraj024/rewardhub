@@ -156,7 +156,7 @@ void main() {
         service.maintenanceMessage,
         'RewardHub is undergoing scheduled maintenance. Please check back shortly.',
       );
-      expect(service.supportPhone, '+91 98765 43210');
+      expect(service.supportPhone, '');
       expect(service.supportEmail, 'support@kitoxhardware.com');
       expect(service.latestVersion, '');
       expect(

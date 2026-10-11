@@ -26,7 +26,9 @@ abstract final class RemoteConfigDefaults {
     RemoteConfigKeys.maintenanceMode: false,
     RemoteConfigKeys.maintenanceMessage:
         'RewardHub is undergoing scheduled maintenance. Please check back shortly.',
-    RemoteConfigKeys.supportPhone: '+91 98765 43210',
+    // Empty hides the "Call support" row until a real number is set in
+    // Remote Config — a placeholder would be dialled for real.
+    RemoteConfigKeys.supportPhone: '',
     RemoteConfigKeys.supportEmail: 'support@kitoxhardware.com',
     RemoteConfigKeys.latestVersion: '',
     RemoteConfigKeys.catalogueUrl:

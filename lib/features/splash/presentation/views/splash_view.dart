@@ -83,7 +83,7 @@ class _SplashViewState extends State<SplashView> with TickerProviderStateMixin {
                         Text(
                           'Scan, earn, and redeem rewards every day.',
                           style: AppTextStyles.bodyMd.copyWith(
-                            color: Colors.white.withValues(alpha: 0.75),
+                            color: AppColors.onPrimary.withValues(alpha: 0.85),
                           ),
                           textAlign: TextAlign.center,
                         ),
@@ -107,7 +107,7 @@ class _SplashViewState extends State<SplashView> with TickerProviderStateMixin {
                           child: CircularProgressIndicator(
                             strokeWidth: 2.5,
                             valueColor: AlwaysStoppedAnimation<Color>(
-                              Colors.white.withValues(alpha: 0.85),
+                              AppColors.onPrimary.withValues(alpha: 0.85),
                             ),
                           ),
                         ),
@@ -115,7 +115,7 @@ class _SplashViewState extends State<SplashView> with TickerProviderStateMixin {
                         Text(
                           AppStrings.productNameUpper,
                           style: AppTextStyles.labelSm.copyWith(
-                            color: Colors.white.withValues(alpha: 0.5),
+                            color: AppColors.onPrimary.withValues(alpha: 0.85),
                             letterSpacing: 2.0,
                             fontWeight: FontWeight.w600,
                           ),
@@ -148,11 +148,13 @@ class _LogoBadge extends StatelessWidget {
           width: 96,
           height: 96,
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppColors.surfaceContainerLowest,
             shape: BoxShape.circle,
             boxShadow: [
               BoxShadow(
-                color: Colors.white.withValues(alpha: 0.35 * pulse.value),
+                color: AppColors.onPrimary.withValues(
+                  alpha: 0.35 * pulse.value,
+                ),
                 blurRadius: glow,
                 spreadRadius: pulse.value * 3,
               ),
@@ -191,11 +193,13 @@ class _Wordmark extends StatelessWidget {
         children: [
           const TextSpan(
             text: 'Kitox',
-            style: TextStyle(color: Colors.white),
+            style: TextStyle(color: AppColors.onPrimary),
           ),
           TextSpan(
             text: ' Hardware',
-            style: TextStyle(color: Colors.white.withValues(alpha: 0.7)),
+            style: TextStyle(
+              color: AppColors.onPrimary.withValues(alpha: 0.7),
+            ),
           ),
         ],
       ),

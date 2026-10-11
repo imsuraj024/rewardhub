@@ -48,6 +48,9 @@ class CatalogueController extends GetxController {
 
   PDFViewController? _pdfViewController;
 
+  /// The load in progress, joined by non-forced calls.
+  Future<void>? _inFlight;
+
   @override
   void onInit() {
     super.onInit();
@@ -77,16 +80,40 @@ class CatalogueController extends GetxController {
   }
 
   /// Downloads and caches the PDF file locally, tracking progress.
+  ///
+  /// Without [forceRefresh], a call joins the load in progress and does
+  /// nothing once the catalogue is showing, so a tab revisit keeps the
+  /// viewer and its page.
   Future<void> loadPdf({bool forceRefresh = false}) async {
+    if (!forceRefresh) {
+      final running = _inFlight;
+      if (running != null) return running;
+      if (state.value is ViewStateSuccess<String>) return;
+    }
+    final run = _load(forceRefresh: forceRefresh);
+    _inFlight = run;
+    try {
+      await run;
+    } finally {
+      if (identical(_inFlight, run)) _inFlight = null;
+    }
+  }
+
+  Future<void> _load({required bool forceRefresh}) async {
     final url = pdfUrl.value;
     if (url.isEmpty) {
-      state.value = const ViewStateError('Catalogue URL is not available.');
+      state.value = const ViewStateError(
+        'Catalogue not available right now. Please try again later.',
+      );
       return;
     }
 
     state.value = const ViewStateLoading();
     downloadProgress.value = 0.0;
     isPdfReady.value = false;
+    // A new viewer always opens on page 1.
+    currentPage.value = 0;
+    totalPages.value = 0;
 
     try {
       final tempDir = await _getTempDir();
@@ -127,7 +154,7 @@ class CatalogueController extends GetxController {
         state.value = ViewStateSuccess(filePath);
       } else {
         state.value = const ViewStateError(
-          'Failed to save catalogue file. Please try again.',
+          "Couldn't save the catalogue. Please try again.",
         );
       }
     } catch (e, stack) {
@@ -138,7 +165,7 @@ class CatalogueController extends GetxController {
         stackTrace: stack,
       );
       state.value = const ViewStateError(
-        'Unable to load catalogue. Please check your internet connection and try again.',
+        'Check your internet and try again.',
       );
     }
   }
@@ -168,7 +195,7 @@ class CatalogueController extends GetxController {
   void onPdfError(dynamic error) {
     log('PDF View Error: $error', name: 'rewardhub.catalogue');
     state.value = const ViewStateError(
-      'Failed to render PDF document. Please try re-downloading.',
+      "Couldn't open the catalogue. Tap Try again.",
     );
   }
 

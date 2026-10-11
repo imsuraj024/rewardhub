@@ -1,10 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_pdfview/flutter_pdfview.dart';
 import 'package:get/get.dart';
 import 'package:rewardhub/core/theme/app_colors.dart';
+import 'package:rewardhub/core/theme/app_radius.dart';
+import 'package:rewardhub/core/theme/app_spacing.dart';
 import 'package:rewardhub/core/theme/app_text_styles.dart';
 import 'package:rewardhub/core/utils/view_state.dart';
 import 'package:rewardhub/core/widgets/app_button.dart';
+import 'package:rewardhub/core/widgets/app_icon_badge.dart';
+import 'package:rewardhub/core/widgets/app_state_message.dart';
+import 'package:rewardhub/core/widgets/app_top_bar.dart';
 import 'package:rewardhub/features/catalogue/presentation/controllers/catalogue_controller.dart';
 
 /// Screen displaying the PDF product catalogue from a remote URL or local cache.
@@ -17,73 +23,42 @@ class CatalogueView extends GetView<CatalogueController> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.surface,
-      appBar: AppBar(
-        backgroundColor: AppColors.surfaceContainerLowest,
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
-        automaticallyImplyLeading: showBackButton,
-        leading: showBackButton
-            ? IconButton(
+      // Scaffold.appBar needs a PreferredSizeWidget; the Obx rebuilds only
+      // the bar on page changes.
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(kToolbarHeight),
+        child: Obx(() {
+          final ready =
+              controller.isPdfReady.value && controller.totalPages.value > 0;
+          return AppTopBar(
+            title: controller.documentTitle.value,
+            subtitle: ready
+                ? 'Page ${controller.currentPage.value + 1} of ${controller.totalPages.value}'
+                : null,
+            showBackButton: showBackButton,
+            actions: [
+              IconButton(
+                tooltip: 'Reload catalogue',
                 icon: const Icon(
-                  Icons.arrow_back_rounded,
+                  Icons.refresh_rounded,
                   color: AppColors.onSurface,
                 ),
-                onPressed: () => Get.back(),
-              )
-            : null,
-        title: Obx(
-          () => Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                controller.documentTitle.value,
-                style: AppTextStyles.titleMd.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+                onPressed: () => controller.loadPdf(forceRefresh: true),
               ),
               if (controller.isPdfReady.value &&
-                  controller.totalPages.value > 0)
-                Text(
-                  'Page ${controller.currentPage.value + 1} of ${controller.totalPages.value}',
-                  style: AppTextStyles.bodySm.copyWith(
-                    color: AppColors.primary,
-                    fontWeight: FontWeight.w600,
+                  controller.totalPages.value > 1)
+                IconButton(
+                  tooltip: 'Go to page',
+                  icon: const Icon(
+                    Icons.find_in_page_rounded,
+                    color: AppColors.onSurface,
                   ),
+                  onPressed: _showJumpToPageDialog,
                 ),
+              const SizedBox(width: AppSpacing.sm),
             ],
-          ),
-        ),
-        actions: [
-          IconButton(
-            tooltip: 'Refresh Catalogue',
-            icon: const Icon(Icons.refresh_rounded, color: AppColors.onSurface),
-            onPressed: () => controller.loadPdf(forceRefresh: true),
-          ),
-          Obx(() {
-            if (!controller.isPdfReady.value ||
-                controller.totalPages.value <= 1) {
-              return const SizedBox.shrink();
-            }
-            return IconButton(
-              tooltip: 'Go to Page',
-              icon: const Icon(
-                Icons.find_in_page_outlined,
-                color: AppColors.onSurface,
-              ),
-              onPressed: () => _showJumpToPageDialog(context),
-            );
-          }),
-          const SizedBox(width: 8),
-        ],
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(1),
-          child: Container(
-            height: 1,
-            color: AppColors.outlineVariant.withValues(alpha: 0.3),
-          ),
-        ),
+          );
+        }),
       ),
       body: Obx(() {
         final state = controller.state.value;
@@ -102,7 +77,8 @@ class CatalogueView extends GetView<CatalogueController> {
         final filePath = (state as ViewStateSuccess<String>).data;
         if (filePath == null) {
           return _ErrorState(
-            message: 'Catalogue file is unavailable.',
+            message:
+                'Catalogue not available right now. Please try again later.',
             onRetry: () => controller.loadPdf(forceRefresh: true),
           );
         }
@@ -125,71 +101,125 @@ class CatalogueView extends GetView<CatalogueController> {
     );
   }
 
-  void _showJumpToPageDialog(BuildContext context) {
-    final textController = TextEditingController();
+  void _showJumpToPageDialog() {
     Get.dialog<void>(
-      Dialog(
-        backgroundColor: AppColors.surfaceContainerLowest,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Go to Page',
-                style: AppTextStyles.titleMd.copyWith(
-                  fontWeight: FontWeight.w700,
+      _GoToPageDialog(
+        total: controller.totalPages.value,
+        current: controller.currentPage.value,
+        onGo: controller.jumpToPage,
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Go to page dialog
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Asks for a page number and validates it inline.
+class _GoToPageDialog extends StatefulWidget {
+  const _GoToPageDialog({
+    required this.total,
+    required this.current,
+    required this.onGo,
+  });
+
+  /// Number of pages in the document.
+  final int total;
+
+  /// 0-based page on screen.
+  final int current;
+
+  /// Receives the chosen 0-based page.
+  final ValueChanged<int> onGo;
+
+  @override
+  State<_GoToPageDialog> createState() => _GoToPageDialogState();
+}
+
+class _GoToPageDialogState extends State<_GoToPageDialog> {
+  final _text = TextEditingController();
+  String? _error;
+
+  @override
+  void dispose() {
+    _text.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final n = int.tryParse(_text.text.trim());
+    if (n == null || n < 1 || n > widget.total) {
+      setState(() => _error = 'Enter a number from 1 to ${widget.total}.');
+      return;
+    }
+    Navigator.of(context).pop();
+    widget.onGo(n - 1);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: AppColors.surfaceContainerLowest,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppRadius.xl),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.xxl),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Semantics(
+              header: true,
+              child: Text('Go to page', style: AppTextStyles.sheetTitle),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              'Enter a page from 1 to ${widget.total}',
+              style: AppTextStyles.bodyMd.copyWith(
+                color: AppColors.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            TextField(
+              controller: _text,
+              autofocus: true,
+              keyboardType: TextInputType.number,
+              textInputAction: TextInputAction.go,
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+                LengthLimitingTextInputFormatter('${widget.total}'.length),
+              ],
+              onChanged: (_) {
+                if (_error != null) setState(() => _error = null);
+              },
+              onSubmitted: (_) => _submit(),
+              decoration: InputDecoration(
+                hintText: 'e.g. ${widget.current + 1}',
+                errorText: _error,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.xxl),
+            Wrap(
+              alignment: WrapAlignment.end,
+              spacing: AppSpacing.sm,
+              runSpacing: AppSpacing.sm,
+              children: [
+                AppButton(
+                  label: 'Cancel',
+                  variant: AppButtonVariant.outline,
+                  size: AppButtonSize.sm,
+                  onPressed: () => Navigator.of(context).pop(),
                 ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Enter page number (1 - ${controller.totalPages.value}):',
-                style: AppTextStyles.bodySm,
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: textController,
-                keyboardType: TextInputType.number,
-                autofocus: true,
-                decoration: InputDecoration(
-                  hintText: 'e.g. ${(controller.currentPage.value + 1)}',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
-                  ),
+                AppButton(
+                  label: 'Go',
+                  size: AppButtonSize.sm,
+                  onPressed: _submit,
                 ),
-              ),
-              const SizedBox(height: 24),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton(
-                    onPressed: () => Get.back(),
-                    child: const Text('Cancel'),
-                  ),
-                  const SizedBox(width: 8),
-                  AppButton(
-                    label: 'Go',
-                    size: AppButtonSize.sm,
-                    onPressed: () {
-                      final input = int.tryParse(textController.text.trim());
-                      if (input != null &&
-                          input >= 1 &&
-                          input <= controller.totalPages.value) {
-                        Get.back();
-                        controller.jumpToPage(input - 1);
-                      }
-                    },
-                  ),
-                ],
-              ),
-            ],
-          ),
+              ],
+            ),
+          ],
         ),
       ),
     );
@@ -210,72 +240,48 @@ class _DownloadingState extends StatelessWidget {
     final percent = (progress * 100).toInt();
 
     return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(AppSpacing.xxxl),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Icon container
-            Container(
-              width: 80,
-              height: 80,
-              decoration: BoxDecoration(
-                color: AppColors.primaryFixed,
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.primary.withValues(alpha: 0.15),
-                    blurRadius: 20,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
-              ),
-              child: const Icon(
-                Icons.menu_book_rounded,
-                size: 40,
-                color: AppColors.primary,
-              ),
+            const AppIconBadge(
+              icon: Icons.menu_book_rounded,
+              size: AppIconBadgeSize.lg,
+              circular: true,
             ),
             const SizedBox(height: 28),
 
             Text(
-              'Loading Catalogue...',
-              style: AppTextStyles.titleLg.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
+              'Loading catalogue…',
+              style: AppTextStyles.titleMd,
+              textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSpacing.sm),
             Text(
               progress > 0 && progress < 1
                   ? 'Downloading $percent%'
-                  : 'Preparing document for high-res viewing',
-              style: AppTextStyles.bodySm.copyWith(
-                color: AppColors.onSurfaceVariant,
-              ),
+                  : 'Getting the latest catalogue',
+              style: AppTextStyles.bodySm,
+              textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: AppSpacing.xxl),
 
             // Progress bar
             SizedBox(
               width: 220,
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(6),
-                child: progress > 0
-                    ? LinearProgressIndicator(
-                        value: progress,
-                        minHeight: 8,
-                        backgroundColor: AppColors.surfaceContainerHigh,
-                        valueColor: const AlwaysStoppedAnimation<Color>(
-                          AppColors.primary,
-                        ),
-                      )
-                    : const LinearProgressIndicator(
-                        minHeight: 8,
-                        backgroundColor: AppColors.surfaceContainerHigh,
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          AppColors.primary,
-                        ),
-                      ),
+                borderRadius: BorderRadius.circular(AppRadius.sm),
+                child: LinearProgressIndicator(
+                  value: progress > 0 ? progress : null,
+                  minHeight: 8,
+                  backgroundColor: AppColors.surfaceContainerHigh,
+                  valueColor: const AlwaysStoppedAnimation<Color>(
+                    AppColors.primary,
+                  ),
+                  semanticsLabel: 'Catalogue download',
+                  semanticsValue: progress > 0 ? '$percent%' : null,
+                ),
               ),
             ),
           ],
@@ -298,51 +304,16 @@ class _ErrorState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 72,
-              height: 72,
-              decoration: BoxDecoration(
-                color: AppColors.errorContainer,
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.cloud_off_rounded,
-                size: 36,
-                color: AppColors.error,
-              ),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              'Unable to Load Catalogue',
-              style: AppTextStyles.titleMd.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              message,
-              style: AppTextStyles.bodySm.copyWith(
-                color: AppColors.onSurfaceVariant,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 24),
-            AppButton(
-              label: 'Try Again',
-              leadingIcon: const Icon(
-                Icons.refresh_rounded,
-                color: Colors.white,
-                size: 16,
-              ),
-              onPressed: onRetry,
-            ),
-          ],
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(AppSpacing.xxxl),
+        child: AppStateMessage(
+          icon: Icons.cloud_off_rounded,
+          tone: AppIconBadgeTone.error,
+          title: "Couldn't load catalogue",
+          message: message,
+          actionLabel: 'Try again',
+          onAction: onRetry,
+          boxed: false,
         ),
       ),
     );

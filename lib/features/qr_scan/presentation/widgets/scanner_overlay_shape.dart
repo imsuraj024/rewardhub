@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 
 import 'package:rewardhub/core/theme/app_colors.dart';
+import 'package:rewardhub/core/theme/app_radius.dart';
 
 /// Dims the entire camera area except for a centered rounded "window", giving
 /// the classic scanner look that focuses attention on the scan target.
 class ScannerScrim extends CustomPainter {
   ScannerScrim({
     required this.windowSize,
-    this.radius = 16,
-    this.dimColor = const Color(0x99000000),
+    this.radius = AppRadius.lg,
+    this.dimColor = AppColors.scrim,
   });
 
   /// Side length of the clear square window at the center.
@@ -49,13 +50,14 @@ class ScannerOverlayShape extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = AppColors.primary
+      // Readable on the dark panel and on the scrim over a bright preview.
+      ..color = AppColors.primaryFixed
       ..strokeWidth = 4
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
 
     const double length = 40.0;
-    const double r = 16.0;
+    const double r = AppRadius.lg;
 
     var path = Path()
       ..moveTo(0, length)

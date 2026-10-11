@@ -20,6 +20,17 @@ class _FakeKycController extends GetxController implements KycController {
   final loading = false.obs;
   final picked = <ImageSource>[];
 
+  /// What [cameraAccess] answers.
+  KycCameraAccess access = KycCameraAccess.ready;
+
+  /// What [pickAadhaar] and [pickSelfie] answer.
+  KycPickResult pickResult = KycPickResult.added;
+
+  int accessChecks = 0;
+  int explainedCount = 0;
+  int settingsOpened = 0;
+  int selfiePicks = 0;
+
   @override
   final aadhaarPath = ''.obs;
   @override
@@ -29,10 +40,28 @@ class _FakeKycController extends GetxController implements KycController {
   bool get isLoading => loading.value;
 
   @override
-  Future<void> pickAadhaar(ImageSource source) async => picked.add(source);
+  Future<KycCameraAccess> cameraAccess() async {
+    accessChecks++;
+    return access;
+  }
 
   @override
-  Future<void> pickSelfie() async {}
+  void cameraExplained() => explainedCount++;
+
+  @override
+  Future<void> openSettings() async => settingsOpened++;
+
+  @override
+  Future<KycPickResult> pickAadhaar(ImageSource source) async {
+    picked.add(source);
+    return pickResult;
+  }
+
+  @override
+  Future<KycPickResult> pickSelfie() async {
+    selfiePicks++;
+    return pickResult;
+  }
 
   @override
   Future<void> onSubmit() async {}
@@ -174,7 +203,212 @@ void main() {
     expect(controller.picked, [ImageSource.camera]);
   });
 
-  testWidgets('edge: a draft photo that no longer exists shows a recovery '
+  group('camera access (DS-26)', () {
+    const rationaleTitle = 'Allow camera to take a photo';
+    const selfieRationale = 'We need your camera to take your selfie. '
+        'Your phone may ask you to allow this.';
+    const aadhaarRationale =
+        'We need your camera to take a photo of your Aadhaar card. '
+        'Your phone may ask you to allow this.';
+    const cameraOffSelfie = 'Tap Open settings, then turn on Camera.';
+    const cameraOffAadhaar = 'Tap Open settings, then turn on Camera. '
+        'You can also choose a photo from your gallery.';
+
+    Future<void> tapSelfie(WidgetTester tester) async {
+      await tester.ensureVisible(find.text('Take a selfie'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Take a selfie'));
+      await tester.pumpAndSettle();
+    }
+
+    Future<void> tapAadhaarCamera(WidgetTester tester) async {
+      await tester.ensureVisible(find.text('Add Aadhaar photo'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Add Aadhaar photo'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Take a photo'));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets(
+        'positive: the first selfie tap explains the camera before opening it',
+        (tester) async {
+      controller.access = KycCameraAccess.explain;
+      await pushStep(tester);
+
+      await tapSelfie(tester);
+
+      expect(find.text(rationaleTitle), findsOneWidget);
+      expect(find.text(selfieRationale), findsOneWidget);
+      expect(find.text('Continue'), findsOneWidget);
+      expect(find.text('Not now'), findsOneWidget);
+      expect(controller.selfiePicks, 0);
+
+      await tester.tap(find.text('Continue'));
+      await tester.pumpAndSettle();
+
+      expect(find.text(rationaleTitle), findsNothing);
+      expect(controller.explainedCount, 1);
+      expect(controller.selfiePicks, 1);
+      expect(toasts, isEmpty);
+    });
+
+    testWidgets('positive: the Aadhaar rationale names the Aadhaar card',
+        (tester) async {
+      controller.access = KycCameraAccess.explain;
+      await pushStep(tester);
+
+      await tapAadhaarCamera(tester);
+
+      expect(find.text(rationaleTitle), findsOneWidget);
+      expect(find.text(aadhaarRationale), findsOneWidget);
+      expect(controller.picked, isEmpty);
+
+      await tester.tap(find.text('Continue'));
+      await tester.pumpAndSettle();
+
+      expect(controller.picked, [ImageSource.camera]);
+    });
+
+    testWidgets('negative: Not now leaves the camera closed', (tester) async {
+      controller.access = KycCameraAccess.explain;
+      await pushStep(tester);
+
+      await tapSelfie(tester);
+      await tester.tap(find.text('Not now'));
+      await tester.pumpAndSettle();
+
+      expect(find.text(rationaleTitle), findsNothing);
+      expect(controller.selfiePicks, 0);
+      expect(controller.explainedCount, 0);
+      expect(controller.settingsOpened, 0);
+      expect(toasts, isEmpty);
+    });
+
+    testWidgets('positive: with the camera allowed no sheet appears',
+        (tester) async {
+      await pushStep(tester);
+
+      await tapSelfie(tester);
+
+      expect(controller.accessChecks, 1);
+      expect(controller.selfiePicks, 1);
+      expect(find.text(rationaleTitle), findsNothing);
+      expect(find.text('Camera is off'), findsNothing);
+    });
+
+    testWidgets(
+        'negative: a blocked camera offers Open settings and never opens '
+        'the picker', (tester) async {
+      controller.access = KycCameraAccess.blocked;
+      await pushStep(tester);
+
+      await tapSelfie(tester);
+
+      expect(find.text('Camera is off'), findsOneWidget);
+      expect(find.text(cameraOffSelfie), findsOneWidget);
+      expect(find.text(rationaleTitle), findsNothing);
+
+      await tester.tap(find.text('Open settings'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Camera is off'), findsNothing);
+      expect(controller.settingsOpened, 1);
+      expect(controller.selfiePicks, 0);
+    });
+
+    testWidgets('negative: Not now on Camera is off does nothing else',
+        (tester) async {
+      controller.access = KycCameraAccess.blocked;
+      await pushStep(tester);
+
+      await tapSelfie(tester);
+      await tester.tap(find.text('Not now'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Camera is off'), findsNothing);
+      expect(controller.settingsOpened, 0);
+      expect(controller.selfiePicks, 0);
+      expect(toasts, isEmpty);
+    });
+
+    testWidgets('negative: a denial from the picker shows Camera is off',
+        (tester) async {
+      controller.pickResult = KycPickResult.cameraBlocked;
+      await pushStep(tester);
+
+      await tapAadhaarCamera(tester);
+
+      expect(controller.picked, [ImageSource.camera]);
+      expect(find.text('Camera is off'), findsOneWidget);
+      expect(find.text(cameraOffAadhaar), findsOneWidget);
+
+      await tester.tap(find.text('Open settings'));
+      await tester.pumpAndSettle();
+
+      expect(controller.settingsOpened, 1);
+    });
+
+    testWidgets('positive: the gallery never shows the camera sheets',
+        (tester) async {
+      controller.access = KycCameraAccess.blocked;
+      await pushStep(tester);
+
+      await tester.tap(find.text('Add Aadhaar photo'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Choose from gallery'));
+      await tester.pumpAndSettle();
+
+      expect(controller.picked, [ImageSource.gallery]);
+      expect(controller.accessChecks, 0);
+      expect(find.text('Camera is off'), findsNothing);
+      expect(find.text(rationaleTitle), findsNothing);
+    });
+
+    testWidgets('edge: both camera sheets fit 320 dp at 2.0x text',
+        (tester) async {
+      tester.view.physicalSize = const Size(320, 568);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      void expectReachableButtons() {
+        for (final label in ['Continue', 'Open settings', 'Not now']) {
+          final finder = find.ancestor(
+            of: find.text(label),
+            matching: find.byType(AppButton),
+          );
+          if (finder.evaluate().isEmpty) continue;
+          final rect = tester.getRect(finder);
+          expect(rect.height, greaterThanOrEqualTo(56), reason: label);
+          expect(rect.bottom, lessThanOrEqualTo(568), reason: label);
+        }
+      }
+
+      controller.access = KycCameraAccess.explain;
+      await pushStep(tester, textScale: 2.0);
+
+      await tapSelfie(tester);
+      expect(find.text(rationaleTitle), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      expectReachableButtons();
+      await tester.tap(find.text('Not now'));
+      await tester.pumpAndSettle();
+
+      controller.access = KycCameraAccess.blocked;
+      await tapAadhaarCamera(tester);
+      expect(find.text('Camera is off'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      expectReachableButtons();
+      await tester.tap(find.text('Open settings'));
+      await tester.pumpAndSettle();
+
+      expect(controller.settingsOpened, 1);
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  testWidgets(
+      'edge: a draft photo that no longer exists shows a recovery '
       'tile, never "Added"', (tester) async {
     controller.aadhaarPath.value = '/no/such/dir/aadhaar.jpg';
     await tester.runAsync(() async {

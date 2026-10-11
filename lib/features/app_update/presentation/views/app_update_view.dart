@@ -7,20 +7,37 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:rewardhub/core/constants/app_strings.dart';
 import 'package:rewardhub/core/services/remote_config_service.dart';
 import 'package:rewardhub/core/theme/app_colors.dart';
+import 'package:rewardhub/core/theme/app_radius.dart';
+import 'package:rewardhub/core/theme/app_spacing.dart';
 import 'package:rewardhub/core/theme/app_text_styles.dart';
-import 'package:rewardhub/core/utils/logger.dart';
+import 'package:rewardhub/core/utils/app_toast.dart';
+import 'package:rewardhub/core/utils/external_links.dart';
 import 'package:rewardhub/core/widgets/app_button.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-/// Full-screen view presented when an app update is available, redirecting
+/// Full-screen view presented when an app update is required, redirecting
 /// users to the Google Play Store or Apple App Store with remote release notes.
-class AppUpdateView extends StatelessWidget {
+///
+/// When the store can't be opened, it says so and offers the link to copy.
+class AppUpdateView extends StatefulWidget {
   const AppUpdateView({super.key});
 
+  @override
+  State<AppUpdateView> createState() => _AppUpdateViewState();
+}
+
+class _AppUpdateViewState extends State<AppUpdateView> {
   static const String _playStoreUrl =
       'https://play.google.com/store/apps/details?id=com.loyalty.rewardhub';
   static const String _appStoreUrl =
       'https://apps.apple.com/app/rewardhub/id6740000000';
+
+  bool _isOpening = false;
+  bool _openFailed = false;
+
+  bool get _isIos => defaultTargetPlatform == TargetPlatform.iOS;
+
+  String get _storeUrl => _isIos ? _appStoreUrl : _playStoreUrl;
 
   RemoteConfigService? get _remoteConfig =>
       Get.isRegistered<RemoteConfigService>()
@@ -28,24 +45,23 @@ class AppUpdateView extends StatelessWidget {
       : null;
 
   Future<void> _openStore() async {
-    final String url = defaultTargetPlatform == TargetPlatform.iOS
-        ? _appStoreUrl
-        : _playStoreUrl;
-
-    final uri = Uri.parse(url);
-    try {
-      final canLaunch = await canLaunchUrl(uri);
-      if (canLaunch) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-      } else {
-        await launchUrl(uri, mode: LaunchMode.platformDefault);
-      }
-    } catch (e, st) {
-      log(
-        'Could not launch store URL: $uri',
-        name: 'rewardhub.app_update',
-        error: e,
-        stackTrace: st,
+    if (_isOpening) return;
+    setState(() => _isOpening = true);
+    final uri = Uri.parse(_storeUrl);
+    var opened = await ExternalLinks.open(uri); // externalApplication
+    if (!opened) {
+      opened = await ExternalLinks.open(uri, mode: LaunchMode.platformDefault);
+    }
+    if (!mounted) return;
+    setState(() {
+      _isOpening = false;
+      _openFailed = !opened;
+    });
+    if (!opened) {
+      AppToast.error(
+        _isIos
+            ? "Couldn't open the App Store. Copy the link below and open it in your browser."
+            : "Couldn't open the Play Store. Copy the link below and open it in your browser.",
       );
     }
   }
@@ -92,7 +108,7 @@ class AppUpdateView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final releaseNotes = _getReleaseNotesList();
-    final isIos = defaultTargetPlatform == TargetPlatform.iOS;
+    final isIos = _isIos;
 
     return PopScope(
       canPop: false,
@@ -104,12 +120,12 @@ class AppUpdateView extends StatelessWidget {
               return SingleChildScrollView(
                 physics: const BouncingScrollPhysics(),
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 20,
+                  horizontal: AppSpacing.authGutter,
+                  vertical: AppSpacing.xl,
                 ),
                 child: ConstrainedBox(
                   constraints: BoxConstraints(
-                    minHeight: constraints.maxHeight - 40,
+                    minHeight: constraints.maxHeight - 2 * AppSpacing.xl,
                   ),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -146,7 +162,7 @@ class AppUpdateView extends StatelessWidget {
 
                           // Title
                           Text(
-                            'New Version Available',
+                            'Update required',
                             style: AppTextStyles.headlineMd.copyWith(
                               fontWeight: FontWeight.w700,
                               color: AppColors.onSurface,
@@ -157,7 +173,7 @@ class AppUpdateView extends StatelessWidget {
 
                           // Subtitle
                           Text(
-                            'A new update is available for ${AppStrings.productName}. Update now from the ${isIos ? 'App Store' : 'Play Store'} to enjoy the latest features and improvements.',
+                            'This version of ${AppStrings.productName} no longer works. Update the app to keep scanning and redeeming points.',
                             style: AppTextStyles.bodyMd.copyWith(
                               color: AppColors.onSurfaceVariant,
                               height: 1.45,
@@ -170,14 +186,13 @@ class AppUpdateView extends StatelessWidget {
                           if (releaseNotes.isNotEmpty) ...[
                             Container(
                               width: double.infinity,
-                              padding: const EdgeInsets.all(16),
+                              padding: const EdgeInsets.all(
+                                AppSpacing.cardPadding,
+                              ),
                               decoration: BoxDecoration(
                                 color: AppColors.surfaceContainerLowest,
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(
-                                  color: AppColors.outlineVariant.withValues(
-                                    alpha: 0.4,
-                                  ),
+                                borderRadius: BorderRadius.circular(
+                                  AppRadius.lg,
                                 ),
                                 boxShadow: const [
                                   BoxShadow(
@@ -199,7 +214,7 @@ class AppUpdateView extends StatelessWidget {
                                       ),
                                       const SizedBox(width: 8),
                                       Text(
-                                        "What's New in this Update",
+                                        "What's new",
                                         style: AppTextStyles.labelLg.copyWith(
                                           color: AppColors.onSurface,
                                           fontWeight: FontWeight.w700,
@@ -233,13 +248,29 @@ class AppUpdateView extends StatelessWidget {
                                 ? 'Update on App Store'
                                 : 'Update on Play Store',
                             isFullWidth: true,
+                            isLoading: _isOpening,
                             leadingIcon: const Icon(
                               Icons.open_in_new_rounded,
                               size: 18,
                             ),
                             onPressed: _openStore,
                           ),
-                          const SizedBox(height: 16),
+                          if (_openFailed) ...[
+                            const SizedBox(height: AppSpacing.md),
+                            AppButton(
+                              label: 'Copy store link',
+                              variant: AppButtonVariant.outline,
+                              size: AppButtonSize.lg,
+                              isFullWidth: true,
+                              leadingIcon: const Icon(Icons.link_rounded),
+                              onPressed: () => ExternalLinks.copy(
+                                _storeUrl,
+                                message:
+                                    'Link copied. Paste it in your browser.',
+                              ),
+                            ),
+                          ],
+                          const SizedBox(height: AppSpacing.lg),
                           const _AppVersionLabel(),
                         ],
                       ),
@@ -267,7 +298,7 @@ class _ReleaseNoteRow extends StatelessWidget {
       children: [
         const Padding(
           padding: EdgeInsets.only(top: 1),
-          child: Icon(Icons.check, size: 18, color: AppColors.primary),
+          child: Icon(Icons.check_rounded, size: 18, color: AppColors.primary),
         ),
         const SizedBox(width: 10),
         Expanded(
@@ -296,11 +327,10 @@ class _AppVersionLabel extends StatelessWidget {
         final version = snapshot.data?.version;
         return Text(
           version != null
-              ? 'VERSION $version  •  ${AppStrings.productNameUpper}'
-              : AppStrings.productNameUpper,
+              ? 'Version $version  •  ${AppStrings.productName}'
+              : AppStrings.productName,
           style: AppTextStyles.labelSm.copyWith(
-            color: AppColors.onSurfaceVariant.withValues(alpha: 0.6),
-            letterSpacing: 1.2,
+            color: AppColors.onSurfaceVariant,
           ),
         );
       },
