@@ -36,6 +36,8 @@ void main() {
   late int readCalls;
   late int requestCalls;
   late Future<PermissionStatus> Function() onRequest;
+  late int confirmCalls;
+  late FutureOr<bool> Function() onConfirm;
 
   setUpAll(() {
     registerFallbackValue(
@@ -54,6 +56,8 @@ void main() {
     readCalls = 0;
     requestCalls = 0;
     onRequest = () async => PermissionStatus.granted;
+    confirmCalls = 0;
+    onConfirm = () => true;
   });
 
   tearDown(resetGet);
@@ -61,8 +65,9 @@ void main() {
   // Built WITHOUT onInit so the WidgetsBinding observer is never touched
   // (the lifecycle group registers one through Get.put where it needs it).
   // The permission readers are fakes, so the platform channel is never hit.
-  // presentResult captures outcomes: the real one is a bottom sheet, which
-  // needs a navigator these pure-Dart tests do not have.
+  // presentResult captures outcomes and confirmSubmit answers the "Submit this
+  // QR code?" question (Submit by default): the real ones are bottom sheets,
+  // which need a navigator these pure-Dart tests do not have.
   QrScanController build({ScanResultPresenter? presentResult}) =>
       QrScanController(
         submitQrScan: submit,
@@ -72,6 +77,10 @@ void main() {
         presentResult: presentResult ??
             ({required bool success, required String message}) =>
                 results.add((success: success, message: message)),
+        confirmSubmit: () {
+          confirmCalls++;
+          return onConfirm();
+        },
         readCameraStatus: () async {
           readCalls++;
           return readStatus;
@@ -319,6 +328,13 @@ void main() {
       c.onDetect(_capture('QR'));
       await tester.pumpAndSettle();
 
+      // Asked first: nothing is sent until the user taps Submit.
+      expect(find.text('Submit this QR code?'), findsOneWidget);
+      verifyNever(() => submit.call(any()));
+
+      await tester.tap(find.text('Submit'));
+      await tester.pumpAndSettle();
+
       expect(c.isSubmitting.value, isFalse);
       expect(find.text('Points added'), findsOneWidget);
       expect(find.text('You earned 25 points.'), findsOneWidget);
@@ -332,8 +348,104 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Points added'), findsNothing);
+
+      // The next code is asked about too; "Scan again" sends nothing.
       c.onDetect(_capture('NEXT'));
       await tester.pumpAndSettle();
+      expect(find.text('Submit this QR code?'), findsOneWidget);
+
+      await tester.tap(find.text('Scan again'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Submit this QR code?'), findsNothing);
+      verifyNever(() => submit.call(any()));
+    });
+  });
+
+  group('confirmation before submit', () {
+    setUp(() {
+      when(() => auth.token).thenReturn('jwt');
+      when(() => submit.call(any())).thenAnswer(
+        (_) async => QrScanResponseModel(success: true, pointsEarned: 25),
+      );
+    });
+
+    test('positive: asks once, then submits on Submit', () async {
+      final c = build();
+
+      c.onDetect(_capture('QR-PAYLOAD'));
+      await _settle();
+
+      expect(confirmCalls, 1);
+      verify(() => submit.call(any())).called(1);
+      expect(results.single.success, isTrue);
+    });
+
+    test('positive: nothing is sent until the question is answered', () async {
+      final answer = Completer<bool>();
+      onConfirm = () => answer.future;
+      final c = build();
+
+      c.onDetect(_capture('QR'));
+      await _settle();
+      verifyNever(() => submit.call(any()));
+      expect(c.isSubmitting.value, isFalse);
+
+      answer.complete(true);
+      await _settle();
+      verify(() => submit.call(any())).called(1);
+    });
+
+    test('negative: "Scan again" sends nothing and shows no result', () async {
+      onConfirm = () => false;
+      final c = build();
+
+      c.onDetect(_capture('QR'));
+      await _settle();
+
+      verifyNever(() => submit.call(any()));
+      expect(results, isEmpty);
+      expect(analytics.names, ['qr_code_detected']);
+
+      // Re-armed: the next code is asked about again.
+      c.onDetect(_capture('NEXT'));
+      await _settle();
+      expect(confirmCalls, 2);
+    });
+
+    test('edge: a code detected while the question is open is ignored',
+        () async {
+      final answer = Completer<bool>();
+      onConfirm = () => answer.future;
+      final c = build();
+
+      c.onDetect(_capture('FIRST'));
+      await _settle();
+      c.onDetect(_capture('SECOND'));
+      await _settle();
+      expect(confirmCalls, 1);
+
+      answer.complete(true);
+      await _settle();
+      final params =
+          verify(() => submit.call(captureAny())).captured.single
+              as SubmitQrScanParams;
+      expect(params.qrData, 'FIRST');
+    });
+
+    test('negative: a question that fails counts as "Scan again"', () async {
+      onConfirm = () => throw Exception('no navigator');
+      final c = build();
+
+      c.onDetect(_capture('QR'));
+      await _settle();
+
+      verifyNever(() => submit.call(any()));
+      expect(results, isEmpty);
+
+      onConfirm = () => true;
+      c.onDetect(_capture('QR'));
+      await _settle();
       verify(() => submit.call(any())).called(1);
     });
   });

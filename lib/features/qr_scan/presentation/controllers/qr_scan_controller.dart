@@ -9,6 +9,7 @@ import 'package:rewardhub/core/analytics/app_analytics.dart';
 import 'package:rewardhub/core/utils/app_format.dart';
 import 'package:rewardhub/core/utils/error_message.dart';
 import 'package:rewardhub/core/utils/logger.dart';
+import 'package:rewardhub/core/widgets/app_bottom_sheet.dart';
 import 'package:rewardhub/features/auth/presentation/controllers/auth_controller.dart';
 import 'package:rewardhub/features/home/presentation/controllers/home_controller.dart';
 import 'package:rewardhub/features/profile/presentation/controllers/profile_controller.dart';
@@ -28,8 +29,14 @@ typedef ScanResultPresenter = FutureOr<void> Function(
 /// Injectable so tests never touch the permission platform channel.
 typedef CameraPermissionReader = Future<PermissionStatus> Function();
 
+/// Asks the user whether to submit a scanned code. Resolves `true` to submit.
+///
+/// Injectable so tests can answer without a live navigator.
+typedef ScanSubmitConfirmer = FutureOr<bool> Function();
+
 /// Drives the QR scanner: camera permission, the scanner lifecycle (tied to the
-/// active shell tab and the app lifecycle), and submitting scanned codes.
+/// active shell tab and the app lifecycle), and submitting scanned codes once
+/// the user confirms them.
 ///
 /// The [MobileScanner] widget stays mounted for the lifetime of the QR tab; the
 /// camera is opened/closed purely via [_startScanner]/[_stopScanner]. Those are
@@ -46,6 +53,7 @@ class QrScanController extends GetxController with WidgetsBindingObserver {
     required ShellController shellController,
     required AppAnalytics analytics,
     ScanResultPresenter? presentResult,
+    ScanSubmitConfirmer? confirmSubmit,
     CameraPermissionReader? readCameraStatus,
     CameraPermissionReader? requestCameraAccess,
   })  : _submitQrScan = submitQrScan,
@@ -53,6 +61,7 @@ class QrScanController extends GetxController with WidgetsBindingObserver {
         _shell = shellController,
         _analytics = analytics,
         _presentResult = presentResult,
+        _confirmSubmit = confirmSubmit,
         _readCameraStatus =
             readCameraStatus ?? (() => Permission.camera.status),
         _requestCameraAccess =
@@ -69,6 +78,10 @@ class QrScanController extends GetxController with WidgetsBindingObserver {
   /// something a pure-Dart controller test does not have. Tests pass a
   /// recorder here instead of having to pump a whole app. `null` in production.
   final ScanResultPresenter? _presentResult;
+
+  /// Overrides how the submit question is asked. The default is an
+  /// [AppBottomSheet.confirm]; `null` in production.
+  final ScanSubmitConfirmer? _confirmSubmit;
 
   /// Reads the permission without prompting.
   final CameraPermissionReader _readCameraStatus;
@@ -99,16 +112,21 @@ class QrScanController extends GetxController with WidgetsBindingObserver {
   /// A scan result is on screen; the scanner stays off until it's dismissed.
   bool _resultOpen = false;
 
+  /// The "Submit this QR code?" question is on screen; the scanner stays off
+  /// until it's answered.
+  bool _confirmOpen = false;
+
   /// Serializes scanner start/stop calls so they never overlap.
   Future<void> _scannerOp = Future<void>.value();
 
   bool get _isOnQrTab => _shell.currentIndex.value == qrTabIndex;
 
   /// The camera may run: permission granted, the Scan tab showing, and no
-  /// scan being checked or shown.
+  /// scan being confirmed, checked or shown.
   bool get _canScan =>
       cameraStatus.value.isGranted &&
       _isOnQrTab &&
+      !_confirmOpen &&
       !_resultOpen &&
       !isSubmitting.value;
 
@@ -204,7 +222,53 @@ class QrScanController extends GetxController with WidgetsBindingObserver {
     _stopScanner();
     // The decoded payload is deliberately not recorded.
     _analytics.qrCodeDetected();
-    _submit(barcode.rawValue!);
+    _confirmAndSubmit(barcode.rawValue!);
+  }
+
+  /// Asks before calling the API. "Scan again", back or a tap outside re-arms
+  /// the scanner without submitting.
+  Future<void> _confirmAndSubmit(String qrData) async {
+    // Blocks resume, tab and rescan restarts while the question is open.
+    _confirmOpen = true;
+    bool confirmed;
+    try {
+      confirmed = await _askToSubmit();
+    } catch (e, st) {
+      log(
+        'scan confirmation failed',
+        name: 'rewardhub.qrscan',
+        error: e,
+        stackTrace: st,
+      );
+      confirmed = false;
+    } finally {
+      _confirmOpen = false;
+    }
+    if (isClosed) return;
+
+    if (confirmed) {
+      await _submit(qrData);
+    } else {
+      rescan();
+    }
+  }
+
+  Future<bool> _askToSubmit() async {
+    final confirmWith = _confirmSubmit;
+    if (confirmWith != null) return confirmWith();
+
+    final context = Get.context;
+    // No navigator to ask with: submit, as before the question existed.
+    if (context == null) return true;
+    return AppBottomSheet.confirm(
+      context: context,
+      title: 'Submit this QR code?',
+      message: "We'll check the code. If it's valid, the points go to your "
+          'Wallet.',
+      confirmLabel: 'Submit',
+      cancelLabel: 'Scan again',
+      icon: Icons.qr_code_2_rounded,
+    );
   }
 
   /// Re-arms detection and restarts the camera when it may run.
